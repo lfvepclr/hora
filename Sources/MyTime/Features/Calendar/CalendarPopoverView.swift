@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarPopoverView: View {
     @StateObject private var viewModel = CalendarViewModel()
     @State private var showAlmanacDetail = false
+    @State private var showWorldClock = false
     
     // 主窗口宽度
     private let mainWidth: CGFloat = 500  // 340 + 160
@@ -11,53 +12,68 @@ struct CalendarPopoverView: View {
     private let almanacWidth: CGFloat = 280
     
     var body: some View {
-        HStack(spacing: 0) {
-            // 主窗口
-            HStack(spacing: 0) {
-                // 左侧：日历区域
-                leftCalendarView
-                    .frame(width: 340)
-                
-                // 右侧：日期详情面板
-                DateDetailPanel(
-                    date: viewModel.selectedDate,
-                    onTap: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showAlmanacDetail = true
+        ZStack {
+            // 世界时钟视图 - 窗口大小与日历+黄历一致 (500+280=780)
+            if showWorldClock {
+                WorldClockPopupView(isPresented: $showWorldClock)
+                    .frame(width: 780, height: 380)
+                    .transition(.opacity)
+            } else {
+                // 日历视图
+                HStack(spacing: 0) {
+                    // 主窗口
+                    HStack(spacing: 0) {
+                        // 左侧：日历区域
+                        leftCalendarView
+                            .frame(width: 340)
+                        
+                        // 右侧：日期详情面板
+                        DateDetailPanel(
+                            date: viewModel.selectedDate,
+                            onTap: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showAlmanacDetail = true
+                                }
+                            },
+                            onWorldClockTap: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showWorldClock = true
+                                }
+                            }
+                        )
+                        .frame(width: 160)
+                    }
+                    .frame(height: 380)
+                    .background(Color.white)
+                    
+                    // 黄历详情子窗口（显示在主窗口右侧）
+                    if showAlmanacDetail {
+                        AlmanacDetailPopup(
+                            date: viewModel.selectedDate,
+                            isPresented: $showAlmanacDetail
+                        )
+                        .frame(width: almanacWidth, height: 380)
+                        .transition(.move(edge: .trailing))
+                        .onAppear {
+                            // 黄历子窗口显示后，调整 popover 位置
+                            // 延迟执行，确保窗口大小已更新
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                let totalWidth = mainWidth + almanacWidth
+                                NotificationCenter.default.post(
+                                    name: .adjustPopoverPosition,
+                                    object: nil,
+                                    userInfo: ["totalWidth": totalWidth]
+                                )
+                            }
                         }
                     }
-                )
-                .frame(width: 160)
-            }
-            .frame(height: 380)
-            .background(Color.white)
-            
-            // 黄历详情子窗口（显示在主窗口右侧）
-            if showAlmanacDetail {
-                AlmanacDetailPopup(
-                    date: viewModel.selectedDate,
-                    isPresented: $showAlmanacDetail
-                )
-                .frame(width: almanacWidth, height: 380)
-                .transition(.move(edge: .trailing))
-                .onAppear {
-                    // 黄历子窗口显示后，调整 popover 位置
-                    // 延迟执行，确保窗口大小已更新
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        let totalWidth = mainWidth + almanacWidth
-                        NotificationCenter.default.post(
-                            name: .adjustPopoverPosition,
-                            object: nil,
-                            userInfo: ["totalWidth": totalWidth]
-                        )
+                }
+                .onChange(of: viewModel.selectedDate) {
+                    // 切换日期时关闭黄历子窗口
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAlmanacDetail = false
                     }
                 }
-            }
-        }
-        .onChange(of: viewModel.selectedDate) { _ in
-            // 切换日期时关闭黄历子窗口
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showAlmanacDetail = false
             }
         }
     }
@@ -198,6 +214,16 @@ struct CalendarPopoverView: View {
 struct DateDetailPanel: View {
     let date: Date
     let onTap: () -> Void
+    let onWorldClockTap: () -> Void
+    
+    @State private var currentTime = Date()
+    @State private var timer: Timer?
+    
+    init(date: Date, onTap: @escaping () -> Void, onWorldClockTap: @escaping () -> Void) {
+        self.date = date
+        self.onTap = onTap
+        self.onWorldClockTap = onWorldClockTap
+    }
     
     private var lunarInfo: LunarInfo {
         LunarCalendarService.shared.getLunarInfo(for: date)
@@ -213,6 +239,42 @@ struct DateDetailPanel: View {
     
     private var isHoliday: Bool {
         HolidayService.shared.getHolidayType(for: date) == .holiday
+    }
+    
+    // 当前时区名称（中文）
+    private var timeZoneName: String {
+        let tz = TimeZone.current
+        return CityDataService.shared.getLocalizedName(forTimezone: tz.identifier)
+    }
+    
+    // UTC偏移字符串
+    private var utcOffsetString: String {
+        let tz = TimeZone.current
+        let seconds = tz.secondsFromGMT(for: currentTime)
+        let hours = seconds / 3600
+        let minutes = abs(seconds % 3600) / 60
+        
+        if minutes == 0 {
+            return "UTC\(hours >= 0 ? "+" : "")\(hours)"
+        }
+        return "UTC\(hours >= 0 ? "+" : "")\(hours):\(String(format: "%02d", minutes))"
+    }
+    
+    // 时间字符串
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: currentTime)
+    }
+    
+    // 是否夏令时
+    private var isDaylightSavingTime: Bool {
+        TimeZone.current.isDaylightSavingTime(for: currentTime)
+    }
+    
+    // 夏令时偏移
+    private var dstOffset: TimeInterval {
+        TimeZone.current.daylightSavingTimeOffset(for: currentTime)
     }
     
     var body: some View {
@@ -273,14 +335,37 @@ struct DateDetailPanel: View {
                 .font(.system(size: 12))
                 .opacity(0.9)
             
-            // 大号日期数字
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 70, height: 70)
-                
-                Text("\(Calendar.current.component(.day, from: date))")
-                    .font(.system(size: 42, weight: .light))
+            // 时间显示（点击可切换到世界时钟）
+            Button(action: {
+                onWorldClockTap()
+            }) {
+                VStack(spacing: 4) {
+                    // 大号时间数字
+                    Text(timeString)
+                        .font(.system(size: 40, weight: .light))
+                    
+                    // 地点图标 + 时区名称
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 10))
+                        Text(timeZoneName)
+                            .font(.system(size: 10))
+                    }
+                    .opacity(0.85)
+                }
+                .frame(width: 110, height: 70)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .cornerRadius(8)
+            .onHover { isHovering in
+                if isHovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
             }
             
             // 农历日期
@@ -306,6 +391,29 @@ struct DateDetailPanel: View {
                     .padding(.top, 4)
             }
         }
+        .onAppear {
+            // 启动定时器更新时间
+            startTimer()
+        }
+        .onDisappear {
+            // 停止定时器
+            stopTimer()
+        }
+    }
+    
+    // 启动定时器
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            Task { @MainActor in
+                currentTime = Date()
+            }
+        }
+    }
+    
+    // 停止定时器
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
     }
     
     // MARK: - 宜忌区域

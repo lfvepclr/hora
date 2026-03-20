@@ -3,6 +3,7 @@ import LunarSwift
 
 /// 农历日历服务 - 使用 6tail/lunar-swift 库
 /// 文档: https://6tail.cn/calendar/api.html
+@MainActor
 class LunarCalendarService {
     static let shared = LunarCalendarService()
     

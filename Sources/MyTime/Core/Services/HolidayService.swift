@@ -3,6 +3,7 @@ import LunarSwift
 
 /// 节假日服务 - 使用 lunar-swift 的 HolidayUtil
 /// 无需本地存储 JSON，直接查询内置的节假日数据（2001-2026年）
+@MainActor
 class HolidayService {
     static let shared = HolidayService()
     

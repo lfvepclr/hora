@@ -6,6 +6,7 @@ extension Notification.Name {
     static let adjustPopoverPosition = Notification.Name("adjustPopoverPosition")
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Properties
     
@@ -30,9 +31,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupClickHandler()
         
         // 每分钟更新一次图标（日期变化时）
-        dateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        dateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in
-                self?.updateMenuBarIcon()
+                self.updateMenuBarIcon()
             }
         }
         
@@ -142,6 +143,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return event
         }
         
+        // 监听右键点击，显示菜单
+        NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+            guard let self = self else { return event }
+            
+            // 检查点击是否在状态栏按钮上
+            if event.window == self.statusItem.button?.window {
+                Task { @MainActor in
+                    self.showContextMenu()
+                }
+                return nil
+            }
+            
+            return event
+        }
+        
         // 监听全局点击（点击外部关闭）
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             Task { @MainActor in
@@ -149,6 +165,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 popover.close()
             }
         }
+    }
+    
+    // MARK: - Context Menu
+    
+    @MainActor
+    private func showContextMenu() {
+        guard let button = statusItem.button else { return }
+        
+        let menu = NSMenu()
+        
+        // 退出菜单项
+        let quitItem = NSMenuItem(
+            title: NSLocalizedString("Quit MyTime", comment: "Quit menu item"),
+            action: #selector(quitApp),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+        
+        // 显示菜单
+        let location = NSPoint(x: 0, y: button.bounds.height + 5)
+        menu.popUp(positioning: nil, at: location, in: button)
+    }
+    
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
     
     // MARK: - Popover
@@ -195,8 +237,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Notifications
     
     @objc private func calendarDayDidChange() {
-        Task { @MainActor in
-            updateMenuBarIcon()
+        Task { @MainActor [weak self] in
+            self?.updateMenuBarIcon()
         }
     }
     
@@ -205,8 +247,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let userInfo = notification.userInfo,
               let totalWidth = userInfo["totalWidth"] as? CGFloat else { return }
         
-        Task { @MainActor in
-            adjustPopoverPosition(totalWidth: totalWidth)
+        Task { @MainActor [weak self] in
+            self?.adjustPopoverPosition(totalWidth: totalWidth)
         }
     }
     

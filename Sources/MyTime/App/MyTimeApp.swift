@@ -35,6 +35,7 @@ class AppState: ObservableObject {
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
+    @State private var showWorldClock = false
     
     var body: some View {
         NavigationSplitView {
@@ -45,8 +46,23 @@ struct ContentView: View {
             case .calendar:
                 CalendarContainerView()
             case .worldClock:
-                WorldClockView()
+                WorldClockContainerView()
             }
+        }
+    }
+}
+
+// MARK: - World Clock Container
+
+struct WorldClockContainerView: View {
+    @State private var isPresented = true
+    
+    var body: some View {
+        ZStack {
+            Color(red: 0.1, green: 0.23, blue: 0.36)
+                .ignoresSafeArea()
+            
+            WorldClockPopupView(isPresented: $isPresented)
         }
     }
 }

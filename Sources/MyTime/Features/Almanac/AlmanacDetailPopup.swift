@@ -25,11 +25,9 @@ struct AlmanacDetailPopup: View {
                 // 喜神、福神、财神（自带上下分隔线）
                 godsSection
                 
-                // 宜
-                yiJiDetailRow(title: "宜", items: almanac.yi, isYi: true)
-                
-                // 忌
-                yiJiDetailRow(title: "忌", items: almanac.ji, isYi: false)
+                // 宜忌
+                YiJiRowView(title: "宜", items: almanac.yi, isYi: true)
+                YiJiRowView(title: "忌", items: almanac.ji, isYi: false)
                 
                 // 吉神
                 if !almanac.jiShen.isEmpty {
@@ -109,28 +107,6 @@ struct AlmanacDetailPopup: View {
                 .foregroundColor(contentColor)
         }
         .frame(maxWidth: .infinity)
-    }
-    
-    private func yiJiDetailRow(title: String, items: [String], isYi: Bool) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            // 宜/忌图标（使用文字代替图片）
-            ZStack {
-                Circle()
-                    .fill(isYi ? Color.green : Color.red)
-                    .frame(width: 24, height: 24)
-                Text(title)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-            }
-            
-            // 宜忌项目
-            Text(items.joined(separator: " "))
-                .font(.system(size: 12))
-                .foregroundColor(contentColor)
-                .lineLimit(nil)
-            
-            Spacer()
-        }
     }
     
     private func shenRow(title: String, items: [String]) -> some View {

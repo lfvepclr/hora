@@ -15,6 +15,10 @@ let package = Package(
                 .product(name: "SwiftDate", package: "SwiftDate"),
                 .product(name: "LunarSwift", package: "lunar-swift"),
             ],
+            resources: [
+                .copy("Resources/Cities.json"),
+                .copy("Resources/Localizable.xcstrings"),
+            ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete")
             ]

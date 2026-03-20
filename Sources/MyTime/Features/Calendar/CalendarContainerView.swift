@@ -74,6 +74,7 @@ struct CalendarHeaderView: View {
     }
 }
 
+@MainActor
 class CalendarViewModel: ObservableObject {
     @Published var currentDate = Date()
     @Published var selectedDate = Date()
@@ -90,9 +91,7 @@ class CalendarViewModel: ObservableObject {
     }
     
     var shouldShowAlmanacSummary: Bool {
-        // 仅在中国时区显示黄历摘要
-        let timezone = TimeZone.current.identifier
-        return timezone.contains("Shanghai") || timezone.contains("Beijing") || timezone.contains("Hong_Kong")
+        CityDataService.shared.shouldShowAlmanacSummary()
     }
     
     func goToToday() {
