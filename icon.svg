@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- 渐变背景 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2"/>
+      <stop offset="100%" style="stop-color:#667EEA"/>
+    </linearGradient>
+    
+    <!-- 光晕效果 -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 背景圆 - 时钟主体 -->
+  <circle cx="32" cy="32" r="28" fill="url(#bgGradient)" filter="url(#glow)"/>
+  
+  <!-- 外圈装饰 - 世界时钟经纬线概念 -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <ellipse cx="32" cy="32" rx="28" ry="12" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+  <line x1="4" y1="32" x2="60" y2="32" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+  
+  <!-- 日历页角 - 左上角 -->
+  <path d="M10 14 L10 8 Q10 6 12 6 L24 6 L24 14 Z" fill="rgba(255,255,255,0.9)"/>
+  <rect x="10" y="14" width="14" height="3" fill="rgba(255,255,255,0.7)"/>
+  
+  <!-- 时钟刻度 -->
+  <g stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linecap="round">
+    <!-- 12点 -->
+    <line x1="32" y1="8" x2="32" y2="12"/>
+    <!-- 3点 -->
+    <line x1="56" y1="32" x2="52" y2="32"/>
+    <!-- 6点 -->
+    <line x1="32" y1="56" x2="32" y2="52"/>
+    <!-- 9点 -->
+    <line x1="8" y1="32" x2="12" y2="32"/>
+  </g>
+  
+  <!-- 短刻度 -->
+  <g stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-linecap="round">
+    <line x1="43" y1="10.5" x2="41.5" y2="13"/>
+    <line x1="53.5" y1="21" x2="51" y2="23.5"/>
+    <line x1="53.5" y1="43" x2="51" y2="40.5"/>
+    <line x1="43" y1="53.5" x2="41.5" y2="51"/>
+    <line x1="21" y1="53.5" x2="22.5" y2="51"/>
+    <line x1="10.5" y1="43" x2="13" y2="40.5"/>
+    <line x1="10.5" y1="21" x2="13" y2="23.5"/>
+    <line x1="21" y1="10.5" x2="22.5" y2="13"/>
+  </g>
+  
+  <!-- 时针 - 指向约10点 -->
+  <line x1="32" y1="32" x2="22" y2="22" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- 分针 - 指向约2点 -->
+  <line x1="32" y1="32" x2="45" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- 秒针 - 指向约7点方向 -->
+  <line x1="32" y1="32" x2="18" y2="42" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- 中心圆点 -->
+  <circle cx="32" cy="32" r="3" fill="white"/>
+  <circle cx="32" cy="32" r="1.5" fill="url(#bgGradient)"/>
+  
+  <!-- 右下角地球小图标 -->
+  <circle cx="48" cy="48" r="8" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>
+  <ellipse cx="48" cy="48" rx="8" ry="4" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+  <path d="M40 48 Q44 44 48 48 Q52 52 56 48" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+</svg>
