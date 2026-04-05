@@ -27,6 +27,27 @@
     {"name": "Sao Paulo","localizedName": "圣保罗","country": "巴西","latitude": -23.5505,"longitude": -46.6333,"timezone": "America/Sao_Paulo","isMajor": false},
     {"name": "Buenos Aires","localizedName": "布宜诺斯艾利斯","country": "阿根廷","latitude": -34.6037,"longitude": -58.3816,"timezone": "America/Argentina/Buenos_Aires","isMajor": false},
     {"name": "Sydney","localizedName": "悉尼","country": "澳大利亚","latitude": -33.8688,"longitude": 151.2093,"timezone": "Australia/Sydney","isMajor": true},
-    {"name": "Auckland","localizedName": "奥克兰","country": "新西兰","latitude": -36.8485,"longitude": 174.7633,"timezone": "Pacific/Auckland","isMajor": false}
+    {"name": "Auckland","localizedName": "奥克兰","country": "新西兰","latitude": -36.8485,"longitude": 174.7633,"timezone": "Pacific/Auckland","isMajor": false},
+    {"name": "Dakar","localizedName": "达喀尔","country": "塞内加尔","latitude": 14.6937,"longitude": -17.4441,"timezone": "Africa/Dakar","isMajor": false},
+    {"name": "Lagos","localizedName": "拉各斯","country": "尼日利亚","latitude": 6.5244,"longitude": 3.3792,"timezone": "Africa/Lagos","isMajor": false},
+    {"name": "Kinshasa","localizedName": "金沙萨","country": "刚果(金)","latitude": -4.4419,"longitude": 15.2663,"timezone": "Africa/Kinshasa","isMajor": false},
+    {"name": "Nairobi","localizedName": "内罗毕","country": "肯尼亚","latitude": -1.2921,"longitude": 36.8219,"timezone": "Africa/Nairobi","isMajor": false},
+    {"name": "Cape Town","localizedName": "开普敦","country": "南非","latitude": -33.9249,"longitude": 18.4241,"timezone": "Africa/Johannesburg","isMajor": false},
+    {"name": "Kyiv","localizedName": "基辅","country": "乌克兰","latitude": 50.4501,"longitude": 30.5234,"timezone": "Europe/Kyiv","isMajor": false},
+    {"name": "Aden","localizedName": "亚丁","country": "也门","latitude": 12.7855,"longitude": 45.0187,"timezone": "Asia/Aden","isMajor": false},
+    {"name": "Tehran","localizedName": "德黑兰","country": "伊朗","latitude": 35.6892,"longitude": 51.389,"timezone": "Asia/Tehran","isMajor": false},
+    {"name": "Nuuk","localizedName": "努克","country": "格陵兰","latitude": 64.1814,"longitude": -51.6941,"timezone": "America/Nuuk","isMajor": false},
+    {"name": "Reykjavik","localizedName": "雷克雅未克","country": "冰岛","latitude": 64.1466,"longitude": -21.9426,"timezone": "Atlantic/Reykjavik","isMajor": false},
+    {"name": "Karachi","localizedName": "卡拉奇","country": "巴基斯坦","latitude": 24.8607,"longitude": 67.0011,"timezone": "Asia/Karachi","isMajor": false},
+    {"name": "Novosibirsk","localizedName": "新西伯利亚","country": "俄罗斯","latitude": 55.0084,"longitude": 82.9358,"timezone": "Asia/Novosibirsk","isMajor": false},
+    {"name": "Ulaanbaatar","localizedName": "乌兰巴托","country": "蒙古","latitude": 47.8864,"longitude": 106.9057,"timezone": "Asia/Ulaanbaatar","isMajor": false},
+    {"name": "Vladivostok","localizedName": "海参崴","country": "俄罗斯","latitude": 43.1332,"longitude": 131.9113,"timezone": "Asia/Vladivostok","isMajor": false},
+    {"name": "Perth","localizedName": "珀斯","country": "澳大利亚","latitude": -31.9505,"longitude": 115.8605,"timezone": "Australia/Perth","isMajor": false},
+    {"name": "Midway","localizedName": "中途岛","country": "美国","latitude": 28.2073,"longitude": -177.3728,"timezone": "Pacific/Pago_Pago","isMajor": false},
+    {"name": "Anchorage","localizedName": "安克雷奇","country": "美国","latitude": 61.2181,"longitude": -149.9003,"timezone": "America/Anchorage","isMajor": true},
+    {"name": "Lima","localizedName": "利马","country": "秘鲁","latitude": -12.0464,"longitude": -77.0428,"timezone": "America/Lima","isMajor": true},
+    {"name": "Santiago","localizedName": "圣地亚哥","country": "智利","latitude": -33.4489,"longitude": -70.6693,"timezone": "America/Santiago","isMajor": true},
+    {"name": "Brasilia","localizedName": "巴西利亚","country": "巴西","latitude": -15.7942,"longitude": -47.8822,"timezone": "America/Sao_Paulo","isMajor": false},
+    {"name": "St. John's","localizedName": "圣约翰斯","country": "加拿大","latitude": 47.5615,"longitude": -52.7126,"timezone": "America/St_Johns","isMajor": false}
   ]
 }
