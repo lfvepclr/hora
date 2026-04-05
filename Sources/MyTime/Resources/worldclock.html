@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Clock</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Roboto',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  overflow:hidden;
+  background:linear-gradient(180deg,#a6bcda 0%,#779ccd 15%,#4c7ec0 32%,#3d6db5 48%,#5a8abf 64%,#7ba8d0 80%,#9cc5e0 100%);
+  height:100vh;width:100vw;
+}
+#mapSvg{position:absolute;top:0;left:0;width:100%;height:100%}
+.land{fill:#8fc5f8;stroke:#a9d2f9;stroke-width:0.8}
+.night-overlay{fill:rgba(0,0,40,0.28);stroke:none;pointer-events:none}
+.city-dot{cursor:pointer;transition:r 0.15s,fill 0.15s}
+.city-dot:hover{r:4.5;fill:#FF6E4F;stroke:#FF6E4F}
+.city-dot.selected{r:4.5;fill:#FF6E4F;stroke:#FF6E4F}
+.city-label{pointer-events:none;opacity:0;transition:opacity 0.15s}
+.city-dot:hover+.city-label,.city-dot.selected+.city-label,.city-label.visible{opacity:1}
+.search-bar{position:absolute;top:10px;left:10px;z-index:200}
+.search-bar-wrapper{position:relative}
+.search-input{
+  width:220px;padding:8px 14px;border:none;border-radius:20px;
+  font-size:13px;background:rgba(255,255,255,0.95);color:#333;
+  outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+.search-input::placeholder{color:#999}
+.search-suggestions{
+  position:absolute;top:100%;left:0;margin-top:4px;
+  background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);
+  max-height:200px;overflow-y:auto;display:none;width:100%;z-index:300;
+}
+.search-suggestions.active{display:block}
+.search-suggestions .item{padding:8px 14px;cursor:pointer;font-size:12px;color:#333;border-bottom:1px solid #f0f0f0}
+.search-suggestions .item:hover{background:#f0f0f0}
+.search-suggestions .item:last-child{border-bottom:none}
+.time-panel{
+  position:absolute;bottom:16px;left:16px;
+  background:rgba(25,50,100,0.85);border-radius:10px;
+  padding:14px 22px;color:#fff;min-width:200px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:200;
+}
+.time-panel .time{font-size:38px;font-weight:300;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.time-panel .time .ampm{font-size:16px;font-weight:500;margin-left:4px;vertical-align:super;opacity:0.9}
+.time-panel .city-name{font-size:14px;margin-top:2px;opacity:0.95}
+.time-panel .date-info{font-size:12px;margin-top:2px;opacity:0.75;text-align:center}
+.copyright{position:absolute;bottom:6px;right:10px;font-size:10px;color:rgba(255,255,255,0.5);z-index:200}
+</style>
+</head>
+<body>
+<svg id="mapSvg" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a6bcda"/>
+      <stop offset="50%" stop-color="#4c7ec0"/>
+      <stop offset="100%" stop-color="#9cc5e0"/>
+    </linearGradient>
+  </defs>
+  <rect id="oceanBg" fill="url(#oceanGrad)"/>
+  <g id="landGroup"></g>
+  <path id="nightPath" class="night-overlay"/>
+  <g id="cityGroup"></g>
+</svg>
+<div class="search-bar">
+  <div class="search-bar-wrapper">
+    <input type="text" class="search-input" id="searchInput" placeholder="Search">
+    <div class="search-suggestions" id="searchSuggestions"></div>
+  </div>
+</div>
+<div class="time-panel" id="timePanel">
+  <div class="time" id="mainTime">--:--:-- <span class="ampm">--</span></div>
+  <div class="city-name" id="mainCityName">Loading...</div>
+  <div class="date-info" id="mainDateInfo"></div>
+</div>
+<div class="copyright">&copy; 24TimeZones.com</div>
+
+<script>
+// ===== Global State =====
+let allCities = [];
+let selectedCity = null;
+let hcTransform = null; // Highcharts transform params from world.json
+let svgViewBox = null;  // {minX, minY, width, height}
+
+const NS = 'http://www.w3.org/2000/svg';
+const R_A = 6371007.2; // Earth authalic radius (meters)
+
+// ===== Init =====
+async function init() {
+  try {
+    await Promise.all([loadWorldMap(), loadCities()]);
+    updateMainTimePanel();
+    setInterval(updateMainTimePanel, 1000);
+    updateNightShadow();
+    setInterval(updateNightShadow, 60000);
+    setupSearch();
+  } catch(e) { console.error('Init error:', e); }
+}
+
+// ===== Load world.json and render land =====
+async function loadWorldMap() {
+  try {
+    const resp = await fetch('world.json');
+    if (!resp.ok) throw new Error('fetch failed');
+    const data = await resp.json();
+    hcTransform = data['hc-transform']?.default;
+    renderLand(data);
+  } catch(e) {
+    console.error('Failed to load world.json:', e);
+  }
+}
+
+function renderLand(geojson) {
+  const landGroup = document.getElementById('landGroup');
+  if (!geojson.features) return;
+
+  // First pass: find coordinate bounds
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  geojson.features.forEach(f => {
+    iterateCoords(f.geometry, (x, y) => {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    });
+  });
+
+  // Set SVG viewBox with padding
+  const pad = 50;
+  svgViewBox = { minX: minX - pad, minY: minY - pad, width: maxX - minX + pad*2, height: maxY - minY + pad*2 };
+  const svg = document.getElementById('mapSvg');
+  svg.setAttribute('viewBox', `${svgViewBox.minX} ${svgViewBox.minY} ${svgViewBox.width} ${svgViewBox.height}`);
+  // Set ocean background rect to fill viewBox
+  const bg = document.getElementById('oceanBg');
+  bg.setAttribute('x', svgViewBox.minX);
+  bg.setAttribute('y', svgViewBox.minY);
+  bg.setAttribute('width', svgViewBox.width);
+  bg.setAttribute('height', svgViewBox.height);
+
+  // Second pass: render paths
+  geojson.features.forEach(f => {
+    const pathStr = featureToPath(f.geometry);
+    if (pathStr) {
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', pathStr);
+      path.setAttribute('class', 'land');
+      landGroup.appendChild(path);
+    }
+  });
+}
+
+function iterateCoords(geometry, cb) {
+  if (!geometry) return;
+  const type = geometry.type;
+  const coords = geometry.coordinates;
+  if (type === 'Polygon') {
+    coords.forEach(ring => ring.forEach(pt => cb(pt[0], pt[1])));
+  } else if (type === 'MultiPolygon') {
+    coords.forEach(poly => poly.forEach(ring => ring.forEach(pt => cb(pt[0], pt[1]))));
+  }
+}
+
+function featureToPath(geometry) {
+  if (!geometry) return null;
+  const type = geometry.type;
+  const coords = geometry.coordinates;
+  let d = '';
+  if (type === 'Polygon') {
+    d = polygonToPath(coords);
+  } else if (type === 'MultiPolygon') {
+    coords.forEach(poly => { d += polygonToPath(poly); });
+  }
+  return d || null;
+}
+
+function polygonToPath(rings) {
+  let d = '';
+  rings.forEach(ring => {
+    ring.forEach((pt, i) => {
+      d += (i === 0 ? 'M' : 'L') + pt[0] + ',' + pt[1];
+    });
+    d += 'Z';
+  });
+  return d;
+}
+
+// ===== Miller Projection: lat/lon → Highcharts JSON coords =====
+function latLonToHC(lat, lon) {
+  if (!hcTransform) return null;
+  const s = hcTransform.scale;
+  const jr = hcTransform.jsonres;
+  const mx = hcTransform.jsonmarginX;
+  const my = hcTransform.jsonmarginY;
+  const xoff = hcTransform.xoffset;
+  const yoff = hcTransform.yoffset;
+
+  // Miller projection
+  const lonRad = lon * Math.PI / 180;
+  const latRad = lat * Math.PI / 180;
+  const xProj = R_A * lonRad;
+  const yProj = R_A * 1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * latRad));
+
+  // Convert to Highcharts JSON coordinates
+  const jx = (xProj - xoff) * s * jr + mx;
+  const jy = my - (yProj - (-yoff + 2 * yoff)) * s * jr;
+  // Simplified: jy = my - (yoff - yProj) * s * jr
+  const jySimple = my - (yoff - yProj) * s * jr;
+
+  return { x: jx, y: jySimple };
+}
+
+// ===== Load cities =====
+async function loadCities() {
+  try {
+    const resp = await fetch('cities24tz.json');
+    if (!resp.ok) throw new Error('fetch failed');
+    const data = await resp.json();
+    allCities = data.map(c => ({
+      id: c.id, name: c.name.split(',')[0].trim(),
+      fullName: c.name, tz: c.tz,
+      lat: parseFloat(c.lat), lon: parseFloat(c.long)
+    }));
+    if (!selectedCity) {
+      selectedCity = allCities.find(c => c.tz === 'Asia/Shanghai' && c.name === 'Beijing') || allCities[0];
+    }
+    renderCities();
+  } catch(e) {
+    console.warn('Failed to load cities, using defaults');
+    setDefaultCities();
+    renderCities();
+  }
+}
+
+function setDefaultCities() {
+  allCities = [
+    {id:"33",name:"Beijing",fullName:"Beijing, China",tz:"Asia/Shanghai",lat:39.9,lon:116.4},
+    {id:"248",name:"Tokyo",fullName:"Tokyo, Japan",tz:"Asia/Tokyo",lat:35.68,lon:139.7},
+    {id:"179",name:"New York",fullName:"New York, United States",tz:"America/New_York",lat:40.72,lon:-74},
+    {id:"136",name:"London",fullName:"London, United Kingdom",tz:"Europe/London",lat:51.52,lon:-0.13},
+    {id:"240",name:"Sydney",fullName:"Sydney, Australia",tz:"Australia/Sydney",lat:-33.87,lon:151.2},
+    {id:"195",name:"Paris",fullName:"Paris, France",tz:"Europe/Paris",lat:48.85,lon:2.35},
+    {id:"235",name:"Seoul",fullName:"Seoul, South Korea",tz:"Asia/Seoul",lat:37.57,lon:126.98},
+    {id:"166",name:"Moscow",fullName:"Moscow, Russia",tz:"Europe/Moscow",lat:55.75,lon:37.62},
+    {id:"137",name:"Los Angeles",fullName:"Los Angeles, United States",tz:"America/Los_Angeles",lat:34.05,lon:-118.25},
+    {id:"236",name:"Singapore",fullName:"Singapore, Singapore",tz:"Asia/Singapore",lat:1.28,lon:103.85}
+  ];
+  selectedCity = allCities[0];
+}
+
+// ===== Render city markers =====
+function renderCities() {
+  const g = document.getElementById('cityGroup');
+  g.innerHTML = '';
+  if (!hcTransform || !svgViewBox) {
+    // Retry after map loads
+    setTimeout(renderCities, 500);
+    return;
+  }
+  allCities.forEach(city => {
+    const pt = latLonToHC(city.lat, city.lon);
+    if (!pt) return;
+
+    // Dot
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', pt.x);
+    dot.setAttribute('cy', pt.y);
+    dot.setAttribute('r', '2.5');
+    dot.setAttribute('fill', '#fff');
+    dot.setAttribute('stroke', '#fff');
+    dot.setAttribute('stroke-width', '0.3');
+    dot.setAttribute('class', 'city-dot');
+    dot.setAttribute('data-id', city.id);
+    if (selectedCity && city.id === selectedCity.id) dot.classList.add('selected');
+
+    // Label group
+    const label = document.createElementNS(NS, 'g');
+    label.setAttribute('class', 'city-label');
+    if (selectedCity && city.id === selectedCity.id) label.classList.add('visible');
+
+    const timeStr = getCityTime(city.tz);
+    const text = city.name + ' ' + timeStr;
+    const textLen = text.length * 4.5 + 12;
+    const rectW = Math.max(textLen, 60);
+
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x', pt.x - rectW/2);
+    rect.setAttribute('y', pt.y - 28);
+    rect.setAttribute('width', rectW);
+    rect.setAttribute('height', 18);
+    rect.setAttribute('rx', '3');
+    rect.setAttribute('fill', '#d97065');
+
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', pt.x);
+    txt.setAttribute('y', pt.y - 16);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('fill', '#fff');
+    txt.setAttribute('font-size', '10');
+    txt.setAttribute('font-weight', '600');
+    txt.setAttribute('font-family', 'Roboto, sans-serif');
+    txt.textContent = text;
+
+    label.appendChild(rect);
+    label.appendChild(txt);
+
+    // Events
+    dot.addEventListener('mouseenter', () => {
+      label.classList.add('visible');
+    });
+    dot.addEventListener('mouseleave', () => {
+      if (!selectedCity || city.id !== selectedCity.id) {
+        label.classList.remove('visible');
+      }
+    });
+    dot.addEventListener('click', () => {
+      selectCity(city);
+    });
+
+    g.appendChild(dot);
+    g.appendChild(label);
+  });
+}
+
+function selectCity(city) {
+  selectedCity = city;
+  updateMainTimePanel();
+  // Update dot styles
+  document.querySelectorAll('.city-dot').forEach(d => d.classList.remove('selected'));
+  document.querySelectorAll('.city-label').forEach(l => l.classList.remove('visible'));
+  const dot = document.querySelector(`.city-dot[data-id="${city.id}"]`);
+  if (dot) {
+    dot.classList.add('selected');
+    const label = dot.nextElementSibling;
+    if (label) label.classList.add('visible');
+  }
+  // Notify Swift
+  if (window.webkit?.messageHandlers?.citySelectedHandler) {
+    window.webkit.messageHandlers.citySelectedHandler.postMessage(city.name);
+  }
+}
+
+// ===== Night shadow =====
+function updateNightShadow() {
+  if (!hcTransform || !svgViewBox) {
+    setTimeout(updateNightShadow, 500);
+    return;
+  }
+  const now = new Date();
+  const dayOfYear = getDayOfYear(now);
+  const utcH = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
+  const declination = -23.45 * Math.cos(2 * Math.PI / 365 * (dayOfYear + 10));
+  const solarNoonLon = -(utcH - 12) * 15; // longitude where it's solar noon
+
+  // Generate terminator points (sunset line)
+  const points = [];
+  for (let lat = -85; lat <= 85; lat += 1) {
+    const latRad = lat * Math.PI / 180;
+    const decRad = declination * Math.PI / 180;
+    let cosHA = -Math.tan(latRad) * Math.tan(decRad);
+    cosHA = Math.max(-1, Math.min(1, cosHA));
+    const ha = Math.acos(cosHA) * 180 / Math.PI;
+    const sunsetLon = solarNoonLon + ha;
+    points.push({ lat, lon: sunsetLon });
+  }
+
+  // Build night polygon in HC coordinates
+  // Night side: from sunset line → wrap around the dark side → back via sunrise line
+  let d = '';
+
+  // Sunset line (south to north) - convert to HC coords
+  const sunsetPts = points.map(p => {
+    let lon = p.lon;
+    while (lon > 180) lon -= 360;
+    while (lon < -180) lon += 360;
+    return latLonToHC(p.lat, lon);
+  }).filter(p => p);
+
+  // Sunrise line (south to north)
+  const sunrisePts = points.map(p => {
+    let lon = solarNoonLon - (p.lon - solarNoonLon); // mirror
+    while (lon > 180) lon -= 360;
+    while (lon < -180) lon += 360;
+    return latLonToHC(p.lat, lon);
+  }).filter(p => p);
+
+  // Determine which side is night
+  // At midnight (opposite of solar noon), it's dark
+  let midnightLon = solarNoonLon + 180;
+  if (midnightLon > 180) midnightLon -= 360;
+
+  // Build polygon: go along sunset line, then across the top, then back along sunrise line, then across bottom
+  // The night polygon should cover from sunset to sunrise going through midnight
+
+  // Strategy: create a filled polygon that covers the night area
+  // Night extends from sunset line to sunrise line, going through midnight
+
+  // Approach: Use clipping. Create path along sunset line (N to S), 
+  // then along map edge to sunrise line (S to N), then close.
+  
+  // Simpler: build the polygon using the terminator directly
+  // The "night" region is the area that is NOT illuminated
+  // From each latitude, night extends from sunrise to sunset going AWAY from noon
+  
+  // Build night polygon properly:
+  // Go from south to north along sunset line, then from north to south along the 
+  // far edge, which requires wrapping around the map
+  
+  // Simplest correct approach: for each latitude, compute the night span
+  // and build two edges of the polygon
+  
+  const nightPoly = [];
+  
+  // Left edge of night (sunset line, south to north)
+  for (let i = 0; i < points.length; i++) {
+    let lon = points[i].lon;
+    while (lon > 180) lon -= 360;
+    while (lon < -180) lon += 360;
+    const pt = latLonToHC(points[i].lat, lon);
+    if (pt) nightPoly.push(pt);
+  }
+  
+  // Right edge of night (sunrise line, north to south = reversed)
+  // Sunrise is the mirror of sunset around solar noon
+  for (let i = points.length - 1; i >= 0; i--) {
+    let sunriseLon = 2 * solarNoonLon - points[i].lon;
+    // Actually: night extends from sunset eastward (or westward) to sunrise going through midnight
+    // sunrise_lon = solarNoonLon - ha (while sunset = solarNoonLon + ha)
+    // So: we need to go from sunset (solarNoon + ha) through midnight to sunrise (solarNoon - ha + 360)
+    // But this crosses the date line...
+    
+    // Simpler: sunrise line longitude
+    const latRad = points[i].lat * Math.PI / 180;
+    const decRad = declination * Math.PI / 180;
+    let cosHA = -Math.tan(latRad) * Math.tan(decRad);
+    cosHA = Math.max(-1, Math.min(1, cosHA));
+    const ha = Math.acos(cosHA) * 180 / Math.PI;
+    let sunriseLonVal = solarNoonLon - ha;
+    while (sunriseLonVal > 180) sunriseLonVal -= 360;
+    while (sunriseLonVal < -180) sunriseLonVal += 360;
+    
+    // We want to go through midnight, so if sunrise < sunset, we go: sunset → 180 → -180 → sunrise
+    // This means the polygon might need to wrap. For SVG, we handle this by going to the map edge.
+    const pt = latLonToHC(points[i].lat, sunriseLonVal);
+    if (pt) nightPoly.push(pt);
+  }
+  
+  if (nightPoly.length > 0) {
+    d = 'M' + nightPoly.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join('L') + 'Z';
+  }
+
+  document.getElementById('nightPath').setAttribute('d', d);
+}
+
+function getDayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / 86400000);
+}
+
+// ===== Time functions =====
+function getCityTime(tz) {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      hour:'2-digit', minute:'2-digit', hour12:true, timeZone:tz
+    }).format(new Date()).toLowerCase();
+  } catch(e) { return '--:--'; }
+}
+
+function updateMainTimePanel() {
+  if (!selectedCity) return;
+  const now = new Date();
+  const tz = selectedCity.tz;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:tz
+    }).formatToParts(now);
+    const m = {}; parts.forEach(p => m[p.type] = p.value);
+    const ampm = (m.dayPeriod || m.dayperiod || 'AM').toUpperCase();
+    document.getElementById('mainTime').innerHTML =
+      `${m.hour}:${m.minute}:${m.second} <span class="ampm">${ampm}</span>`;
+    document.getElementById('mainCityName').textContent = selectedCity.fullName;
+    const wd = new Intl.DateTimeFormat('en-US',{weekday:'long',timeZone:tz}).format(now);
+    const dt = new Intl.DateTimeFormat('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:tz}).format(now);
+    document.getElementById('mainDateInfo').innerHTML = wd + '<br>' + dt;
+  } catch(e) {}
+}
+
+// ===== Search =====
+function setupSearch() {
+  const input = document.getElementById('searchInput');
+  const sugg = document.getElementById('searchSuggestions');
+  input.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    if (q.length > 0) {
+      const matches = allCities.filter(c =>
+        c.name.toLowerCase().includes(q) || c.fullName.toLowerCase().includes(q)
+      ).slice(0, 12);
+      sugg.innerHTML = matches.map(c =>
+        `<div class="item" data-id="${c.id}">${c.fullName}</div>`
+      ).join('');
+      sugg.classList.add('active');
+    } else { sugg.classList.remove('active'); }
+  });
+  sugg.addEventListener('click', e => {
+    if (e.target.classList.contains('item')) {
+      const city = allCities.find(c => c.id === e.target.dataset.id);
+      if (city) { selectCity(city); input.value=''; sugg.classList.remove('active'); }
+    }
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-bar')) sugg.classList.remove('active');
+  });
+}
+
+// ===== Swift interfaces =====
+function setCities(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr);
+    if (data.length > 0 && data[0].tz) {
+      allCities = data.map(c => ({
+        id:c.id, name:c.name.split(',')[0].trim(),
+        fullName:c.name, tz:c.tz,
+        lat:parseFloat(c.lat), lon:parseFloat(c.long)
+      }));
+    } else {
+      allCities = data.map(c => ({
+        id:c.id||c.name, name:c.localizedName||c.name,
+        fullName:(c.localizedName||c.name)+(c.country?', '+c.country:''),
+        tz:c.timezoneIdentifier||c.timezone||'UTC',
+        lat:c.latitude, lon:c.longitude
+      }));
+    }
+    if (!selectedCity && allCities.length > 0) selectedCity = allCities[0];
+    renderCities();
+    updateMainTimePanel();
+  } catch(e) { console.error('setCities error:', e); }
+}
+
+function setWorldMapData(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr);
+    hcTransform = data['hc-transform']?.default;
+    renderLand(data);
+    renderCities();
+    updateNightShadow();
+  } catch(e) { console.error('setWorldMapData error:', e); }
+}
+
+function setSelectedCity(cityName) {
+  const city = allCities.find(c => c.name === cityName || c.fullName.includes(cityName));
+  if (city) selectCity(city);
+}
+
+// ===== Start =====
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

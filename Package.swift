@@ -22,6 +22,10 @@ let package = Package(
             resources: [
                 .copy("Resources/Cities.json"),
                 .copy("Resources/Localizable.xcstrings"),
+                .copy("Resources/worldclock.html"),
+                .copy("Resources/world.json"),
+                .copy("Resources/cities24tz.json"),
+                .copy("Resources/countryTimezones.json"),
             ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete")

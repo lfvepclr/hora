@@ -23,6 +23,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 设置为附件应用，不在 Dock 中显示图标
+        NSApp.setActivationPolicy(.accessory)
+        
         // 设置菜单栏图标
         updateMenuBarIcon()
         statusItem.isVisible = true
@@ -258,19 +261,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let popover = presentedPopover,
               let popoverWindow = popover.contentViewController?.view.window,
               let screen = NSScreen.main else { return }
-        
+    
         let screenFrame = screen.visibleFrame
         let windowFrame = popoverWindow.frame
-        
+    
         // 计算新的右边缘位置
         let newRightEdge = windowFrame.origin.x + totalWidth
         let screenRightEdge = screenFrame.origin.x + screenFrame.width
-        
+    
         // 如果超出屏幕右边界，计算需要左移的距离
-        if newRightEdge > screenRightEdge {
-            let overflow = newRightEdge - screenRightEdge
+        // 确保距离屏幕右边至少 20px
+        let rightMargin: CGFloat = 20
+        if newRightEdge > screenRightEdge - rightMargin {
+            let overflow = newRightEdge - (screenRightEdge - rightMargin)
             let newOrigin = CGPoint(
-                x: windowFrame.origin.x - overflow - 10,  // 左移超出距离 + 10px 边距
+                x: windowFrame.origin.x - overflow - 10,  // 左移超出距离 + 10px 额外边距
                 y: windowFrame.origin.y
             )
             popoverWindow.setFrameOrigin(newOrigin)

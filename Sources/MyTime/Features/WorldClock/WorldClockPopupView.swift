@@ -8,33 +8,15 @@ struct WorldClockPopupView: View {
     @StateObject private var viewModel = WorldClockViewModel()
     @State private var selectedCity: WorldCity?
     @State private var hoveredCity: WorldCity?
-    @State private var isFullscreen = false
-    @State private var fullscreenWindow: NSWindow?
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 渐变背景 - 24timezones.com 风格
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.102, green: 0.290, blue: 0.478),
-                        Color(red: 0.051, green: 0.165, blue: 0.290)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                
-                // MapKit 视图
-                WorldClockMapView(viewModel: viewModel)
+                // 纯Swift实现的世界时钟视图
+                NativeWorldClockView(viewModel: viewModel)
                 
                 // 顶部控制栏
-                TopControlBar(
-                    isPresented: $isPresented,
-                    isFullscreen: $isFullscreen,
-                    fullscreenWindow: $fullscreenWindow,
-                    viewModel: viewModel
-                )
+                TopControlBar(isPresented: $isPresented)
             }
         }
     }
@@ -121,9 +103,6 @@ struct CurrentTimePanel: View {
 
 struct TopControlBar: View {
     @Binding var isPresented: Bool
-    @Binding var isFullscreen: Bool
-    @Binding var fullscreenWindow: NSWindow?
-    @ObservedObject var viewModel: WorldClockViewModel
     
     var body: some View {
         VStack(spacing: 0) {
@@ -140,104 +119,22 @@ struct TopControlBar: View {
                     }
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.8))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.3))
+                    )
                 }
                 .buttonStyle(.plain)
                 .padding(.leading, 12)
                 
                 Spacer()
-                
-                // 全屏按钮
-                Button(action: toggleFullscreen) {
-                    Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                .buttonStyle(.plain)
-                .help(isFullscreen ? "退出全屏" : "全屏显示")
-                .padding(.trailing, 16)
             }
             .padding(.vertical, 10)
-            .background(Color.black.opacity(0.3))
             
             Spacer()
         }
-    }
-    
-    private func toggleFullscreen() {
-        if isFullscreen {
-            fullscreenWindow?.close()
-            fullscreenWindow = nil
-            isFullscreen = false
-        } else {
-            let contentView = NSHostingView(rootView: FullscreenWorldClockView(
-                viewModel: viewModel,
-                onClose: {
-                    fullscreenWindow?.close()
-                    fullscreenWindow = nil
-                    isFullscreen = false
-                }
-            ))
-            
-            let window = NSWindow(
-                contentRect: NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1200, height: 800),
-                styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "世界时钟"
-            window.contentView = contentView
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.styleMask.insert(.fullSizeContentView)
-            window.makeKeyAndOrderFront(nil)
-            window.toggleFullScreen(nil)
-            
-            fullscreenWindow = window
-            isFullscreen = true
-        }
-    }
-}
-
-// MARK: - 全屏视图
-
-struct FullscreenWorldClockView: View {
-    @ObservedObject var viewModel: WorldClockViewModel
-    let onClose: () -> Void
-    @State private var selectedCity: WorldCity?
-    @State private var hoveredCity: WorldCity?
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.102, green: 0.290, blue: 0.478),
-                        Color(red: 0.051, green: 0.165, blue: 0.290)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                
-                WorldClockMapView(viewModel: viewModel)
-                
-                // 关闭按钮
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: onClose) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(16)
-                    }
-                    Spacer()
-                }
-            }
-        }
-        .background(Color.black)
     }
 }
 

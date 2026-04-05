@@ -1,0 +1,426 @@
+[
+  {
+    "countryCode": "US",
+    "countryName": "United States",
+    "timezones": [
+      {"timezone": "America/New_York", "cityName": "New York", "cityLocalizedName": "纽约", "latitude": 40.716667, "longitude": -74.0, "isCapital": false},
+      {"timezone": "America/Chicago", "cityName": "Chicago", "cityLocalizedName": "芝加哥", "latitude": 41.85, "longitude": -87.65, "isCapital": false},
+      {"timezone": "America/Denver", "cityName": "Denver", "cityLocalizedName": "丹佛", "latitude": 39.733333, "longitude": -104.983333, "isCapital": false},
+      {"timezone": "America/Los_Angeles", "cityName": "Los Angeles", "cityLocalizedName": "洛杉矶", "latitude": 34.05, "longitude": -118.25, "isCapital": false},
+      {"timezone": "America/Anchorage", "cityName": "Anchorage", "cityLocalizedName": "安克雷奇", "latitude": 61.216667, "longitude": -149.9, "isCapital": false},
+      {"timezone": "Pacific/Honolulu", "cityName": "Honolulu", "cityLocalizedName": "檀香山", "latitude": 21.3, "longitude": -157.85, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "RU",
+    "countryName": "Russia",
+    "timezones": [
+      {"timezone": "Europe/Kaliningrad", "cityName": "Kaliningrad", "cityLocalizedName": "加里宁格勒", "latitude": 54.7, "longitude": 20.516667, "isCapital": false},
+      {"timezone": "Europe/Moscow", "cityName": "Moscow", "cityLocalizedName": "莫斯科", "latitude": 55.75, "longitude": 37.616667, "isCapital": true},
+      {"timezone": "Europe/Samara", "cityName": "Samara", "cityLocalizedName": "萨马拉", "latitude": 53.2, "longitude": 50.15, "isCapital": false},
+      {"timezone": "Asia/Yekaterinburg", "cityName": "Yekaterinburg", "cityLocalizedName": "叶卡捷琳堡", "latitude": 56.85, "longitude": 60.616667, "isCapital": false},
+      {"timezone": "Asia/Omsk", "cityName": "Omsk", "cityLocalizedName": "鄂木斯克", "latitude": 55.0, "longitude": 73.366667, "isCapital": false},
+      {"timezone": "Asia/Krasnoyarsk", "cityName": "Krasnoyarsk", "cityLocalizedName": "克拉斯诺亚尔斯克", "latitude": 56.016667, "longitude": 92.866667, "isCapital": false},
+      {"timezone": "Asia/Irkutsk", "cityName": "Irkutsk", "cityLocalizedName": "伊尔库茨克", "latitude": 52.3, "longitude": 104.3, "isCapital": false},
+      {"timezone": "Asia/Yakutsk", "cityName": "Yakutsk", "cityLocalizedName": "雅库茨克", "latitude": 62.033333, "longitude": 129.733333, "isCapital": false},
+      {"timezone": "Asia/Vladivostok", "cityName": "Vladivostok", "cityLocalizedName": "海参崴", "latitude": 43.1, "longitude": 131.866667, "isCapital": false},
+      {"timezone": "Asia/Kamchatka", "cityName": "Petropavlovsk-Kamchatsky", "cityLocalizedName": "堪察加彼得罗巴甫洛夫斯克", "latitude": 53.05, "longitude": 158.65, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "CN",
+    "countryName": "China",
+    "timezones": [
+      {"timezone": "Asia/Shanghai", "cityName": "Beijing", "cityLocalizedName": "北京", "latitude": 39.9, "longitude": 116.4, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "AU",
+    "countryName": "Australia",
+    "timezones": [
+      {"timezone": "Australia/Sydney", "cityName": "Sydney", "cityLocalizedName": "悉尼", "latitude": -33.866667, "longitude": 151.2, "isCapital": false},
+      {"timezone": "Australia/Brisbane", "cityName": "Brisbane", "cityLocalizedName": "布里斯班", "latitude": -27.466667, "longitude": 153.033333, "isCapital": false},
+      {"timezone": "Australia/Adelaide", "cityName": "Adelaide", "cityLocalizedName": "阿德莱德", "latitude": -34.933333, "longitude": 138.6, "isCapital": false},
+      {"timezone": "Australia/Perth", "cityName": "Perth", "cityLocalizedName": "珀斯", "latitude": -31.95, "longitude": 115.866667, "isCapital": false},
+      {"timezone": "Australia/Darwin", "cityName": "Darwin", "cityLocalizedName": "达尔文", "latitude": -12.466667, "longitude": 130.85, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "CA",
+    "countryName": "Canada",
+    "timezones": [
+      {"timezone": "America/St_Johns", "cityName": "St. John's", "cityLocalizedName": "圣约翰斯", "latitude": 47.566667, "longitude": -52.716667, "isCapital": false},
+      {"timezone": "America/Halifax", "cityName": "Halifax", "cityLocalizedName": "哈利法克斯", "latitude": 44.65, "longitude": -63.566667, "isCapital": false},
+      {"timezone": "America/Toronto", "cityName": "Toronto", "cityLocalizedName": "多伦多", "latitude": 43.7, "longitude": -79.416667, "isCapital": false},
+      {"timezone": "America/Winnipeg", "cityName": "Winnipeg", "cityLocalizedName": "温尼伯", "latitude": 49.883333, "longitude": -97.15, "isCapital": false},
+      {"timezone": "America/Edmonton", "cityName": "Edmonton", "cityLocalizedName": "埃德蒙顿", "latitude": 53.55, "longitude": -113.466667, "isCapital": false},
+      {"timezone": "America/Vancouver", "cityName": "Vancouver", "cityLocalizedName": "温哥华", "latitude": 49.25, "longitude": -123.116667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "BR",
+    "countryName": "Brazil",
+    "timezones": [
+      {"timezone": "America/Sao_Paulo", "cityName": "Sao Paulo", "cityLocalizedName": "圣保罗", "latitude": -23.55, "longitude": -46.633333, "isCapital": false},
+      {"timezone": "America/Bahia", "cityName": "Salvador", "cityLocalizedName": "萨尔瓦多", "latitude": -12.966667, "longitude": -38.516667, "isCapital": false},
+      {"timezone": "America/Fortaleza", "cityName": "Fortaleza", "cityLocalizedName": "福塔莱萨", "latitude": -3.716667, "longitude": -38.5, "isCapital": false},
+      {"timezone": "America/Manaus", "cityName": "Manaus", "cityLocalizedName": "马瑙斯", "latitude": -3.1, "longitude": -60.016667, "isCapital": false},
+      {"timezone": "America/Rio_Branco", "cityName": "Rio Branco", "cityLocalizedName": "里奥布兰科", "latitude": -9.966667, "longitude": -67.816667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "GB",
+    "countryName": "United Kingdom",
+    "timezones": [
+      {"timezone": "Europe/London", "cityName": "London", "cityLocalizedName": "伦敦", "latitude": 51.516667, "longitude": -0.133333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "FR",
+    "countryName": "France",
+    "timezones": [
+      {"timezone": "Europe/Paris", "cityName": "Paris", "cityLocalizedName": "巴黎", "latitude": 48.85, "longitude": 2.35, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "DE",
+    "countryName": "Germany",
+    "timezones": [
+      {"timezone": "Europe/Berlin", "cityName": "Berlin", "cityLocalizedName": "柏林", "latitude": 52.516667, "longitude": 13.416667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "JP",
+    "countryName": "Japan",
+    "timezones": [
+      {"timezone": "Asia/Tokyo", "cityName": "Tokyo", "cityLocalizedName": "东京", "latitude": 35.683333, "longitude": 139.7, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "KR",
+    "countryName": "South Korea",
+    "timezones": [
+      {"timezone": "Asia/Seoul", "cityName": "Seoul", "cityLocalizedName": "首尔", "latitude": 37.566667, "longitude": 126.983333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "IN",
+    "countryName": "India",
+    "timezones": [
+      {"timezone": "Asia/Kolkata", "cityName": "New Delhi", "cityLocalizedName": "新德里", "latitude": 28.633333, "longitude": 77.216667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "ID",
+    "countryName": "Indonesia",
+    "timezones": [
+      {"timezone": "Asia/Jakarta", "cityName": "Jakarta", "cityLocalizedName": "雅加达", "latitude": -6.216667, "longitude": 106.85, "isCapital": true},
+      {"timezone": "Asia/Makassar", "cityName": "Makassar", "cityLocalizedName": "望加锡", "latitude": -5.133333, "longitude": 119.4, "isCapital": false},
+      {"timezone": "Asia/Jayapura", "cityName": "Jayapura", "cityLocalizedName": "查亚普拉", "latitude": -2.533333, "longitude": 140.716667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "MX",
+    "countryName": "Mexico",
+    "timezones": [
+      {"timezone": "America/Mexico_City", "cityName": "Mexico City", "cityLocalizedName": "墨西哥城", "latitude": 19.433333, "longitude": -99.133333, "isCapital": true},
+      {"timezone": "America/Tijuana", "cityName": "Tijuana", "cityLocalizedName": "蒂华纳", "latitude": 32.5, "longitude": -117.0, "isCapital": false},
+      {"timezone": "America/Chihuahua", "cityName": "Chihuahua", "cityLocalizedName": "奇瓦瓦", "latitude": 28.633333, "longitude": -106.083333, "isCapital": false},
+      {"timezone": "America/Cancun", "cityName": "Cancun", "cityLocalizedName": "坎昆", "latitude": 21.166667, "longitude": -86.85, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "IT",
+    "countryName": "Italy",
+    "timezones": [
+      {"timezone": "Europe/Rome", "cityName": "Rome", "cityLocalizedName": "罗马", "latitude": 41.9, "longitude": 12.516667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "ES",
+    "countryName": "Spain",
+    "timezones": [
+      {"timezone": "Europe/Madrid", "cityName": "Madrid", "cityLocalizedName": "马德里", "latitude": 40.416667, "longitude": -3.7, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "SA",
+    "countryName": "Saudi Arabia",
+    "timezones": [
+      {"timezone": "Asia/Riyadh", "cityName": "Riyadh", "cityLocalizedName": "利雅得", "latitude": 24.683333, "longitude": 46.716667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "AE",
+    "countryName": "United Arab Emirates",
+    "timezones": [
+      {"timezone": "Asia/Dubai", "cityName": "Dubai", "cityLocalizedName": "迪拜", "latitude": 25.066667, "longitude": 55.166667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "TR",
+    "countryName": "Turkey",
+    "timezones": [
+      {"timezone": "Europe/Istanbul", "cityName": "Istanbul", "cityLocalizedName": "伊斯坦布尔", "latitude": 41.016667, "longitude": 28.95, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "ZA",
+    "countryName": "South Africa",
+    "timezones": [
+      {"timezone": "Africa/Johannesburg", "cityName": "Johannesburg", "cityLocalizedName": "约翰内斯堡", "latitude": -26.2, "longitude": 28.05, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "EG",
+    "countryName": "Egypt",
+    "timezones": [
+      {"timezone": "Africa/Cairo", "cityName": "Cairo", "cityLocalizedName": "开罗", "latitude": 30.066667, "longitude": 31.25, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "NG",
+    "countryName": "Nigeria",
+    "timezones": [
+      {"timezone": "Africa/Lagos", "cityName": "Lagos", "cityLocalizedName": "拉各斯", "latitude": 6.45, "longitude": 3.4, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "TH",
+    "countryName": "Thailand",
+    "timezones": [
+      {"timezone": "Asia/Bangkok", "cityName": "Bangkok", "cityLocalizedName": "曼谷", "latitude": 13.75, "longitude": 100.5, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "VN",
+    "countryName": "Vietnam",
+    "timezones": [
+      {"timezone": "Asia/Ho_Chi_Minh", "cityName": "Ho Chi Minh City", "cityLocalizedName": "胡志明市", "latitude": 10.816667, "longitude": 106.633333, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "SG",
+    "countryName": "Singapore",
+    "timezones": [
+      {"timezone": "Asia/Singapore", "cityName": "Singapore", "cityLocalizedName": "新加坡", "latitude": 1.283333, "longitude": 103.85, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "HK",
+    "countryName": "Hong Kong",
+    "timezones": [
+      {"timezone": "Asia/Hong_Kong", "cityName": "Hong Kong", "cityLocalizedName": "香港", "latitude": 22.283333, "longitude": 114.15, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "TW",
+    "countryName": "Taiwan",
+    "timezones": [
+      {"timezone": "Asia/Taipei", "cityName": "Taipei", "cityLocalizedName": "台北", "latitude": 25.05, "longitude": 121.533333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "NZ",
+    "countryName": "New Zealand",
+    "timezones": [
+      {"timezone": "Pacific/Auckland", "cityName": "Auckland", "cityLocalizedName": "奥克兰", "latitude": -36.866667, "longitude": 174.766667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "PH",
+    "countryName": "Philippines",
+    "timezones": [
+      {"timezone": "Asia/Manila", "cityName": "Manila", "cityLocalizedName": "马尼拉", "latitude": 14.6, "longitude": 120.983333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "AR",
+    "countryName": "Argentina",
+    "timezones": [
+      {"timezone": "America/Argentina/Buenos_Aires", "cityName": "Buenos Aires", "cityLocalizedName": "布宜诺斯艾利斯", "latitude": -34.616667, "longitude": -58.383333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "CL",
+    "countryName": "Chile",
+    "timezones": [
+      {"timezone": "America/Santiago", "cityName": "Santiago", "cityLocalizedName": "圣地亚哥", "latitude": -33.45, "longitude": -70.65, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "CO",
+    "countryName": "Colombia",
+    "timezones": [
+      {"timezone": "America/Bogota", "cityName": "Bogota", "cityLocalizedName": "波哥大", "latitude": 4.616667, "longitude": -74.083333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "PE",
+    "countryName": "Peru",
+    "timezones": [
+      {"timezone": "America/Lima", "cityName": "Lima", "cityLocalizedName": "利马", "latitude": -12.05, "longitude": -77.033333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "PK",
+    "countryName": "Pakistan",
+    "timezones": [
+      {"timezone": "Asia/Karachi", "cityName": "Karachi", "cityLocalizedName": "卡拉奇", "latitude": 24.9, "longitude": 67.083333, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "BD",
+    "countryName": "Bangladesh",
+    "timezones": [
+      {"timezone": "Asia/Dhaka", "cityName": "Dhaka", "cityLocalizedName": "达卡", "latitude": 23.716667, "longitude": 90.4, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "IR",
+    "countryName": "Iran",
+    "timezones": [
+      {"timezone": "Asia/Tehran", "cityName": "Tehran", "cityLocalizedName": "德黑兰", "latitude": 35.7, "longitude": 51.416667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "IL",
+    "countryName": "Israel",
+    "timezones": [
+      {"timezone": "Asia/Jerusalem", "cityName": "Jerusalem", "cityLocalizedName": "耶路撒冷", "latitude": 31.766667, "longitude": 35.216667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "GR",
+    "countryName": "Greece",
+    "timezones": [
+      {"timezone": "Europe/Athens", "cityName": "Athens", "cityLocalizedName": "雅典", "latitude": 37.983333, "longitude": 23.716667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "PL",
+    "countryName": "Poland",
+    "timezones": [
+      {"timezone": "Europe/Warsaw", "cityName": "Warsaw", "cityLocalizedName": "华沙", "latitude": 52.233333, "longitude": 21.016667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "NL",
+    "countryName": "Netherlands",
+    "timezones": [
+      {"timezone": "Europe/Amsterdam", "cityName": "Amsterdam", "cityLocalizedName": "阿姆斯特丹", "latitude": 52.366667, "longitude": 4.883333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "BE",
+    "countryName": "Belgium",
+    "timezones": [
+      {"timezone": "Europe/Brussels", "cityName": "Brussels", "cityLocalizedName": "布鲁塞尔", "latitude": 50.85, "longitude": 4.35, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "SE",
+    "countryName": "Sweden",
+    "timezones": [
+      {"timezone": "Europe/Stockholm", "cityName": "Stockholm", "cityLocalizedName": "斯德哥尔摩", "latitude": 59.333333, "longitude": 18.066667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "NO",
+    "countryName": "Norway",
+    "timezones": [
+      {"timezone": "Europe/Oslo", "cityName": "Oslo", "cityLocalizedName": "奥斯陆", "latitude": 59.916667, "longitude": 10.75, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "DK",
+    "countryName": "Denmark",
+    "timezones": [
+      {"timezone": "Europe/Copenhagen", "cityName": "Copenhagen", "cityLocalizedName": "哥本哈根", "latitude": 55.683333, "longitude": 12.566667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "FI",
+    "countryName": "Finland",
+    "timezones": [
+      {"timezone": "Europe/Helsinki", "cityName": "Helsinki", "cityLocalizedName": "赫尔辛基", "latitude": 60.166667, "longitude": 24.933333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "CH",
+    "countryName": "Switzerland",
+    "timezones": [
+      {"timezone": "Europe/Zurich", "cityName": "Zurich", "cityLocalizedName": "苏黎世", "latitude": 47.366667, "longitude": 8.55, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "AT",
+    "countryName": "Austria",
+    "timezones": [
+      {"timezone": "Europe/Vienna", "cityName": "Vienna", "cityLocalizedName": "维也纳", "latitude": 48.216667, "longitude": 16.366667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "PT",
+    "countryName": "Portugal",
+    "timezones": [
+      {"timezone": "Europe/Lisbon", "cityName": "Lisbon", "cityLocalizedName": "里斯本", "latitude": 38.716667, "longitude": -9.133333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "CZ",
+    "countryName": "Czech Republic",
+    "timezones": [
+      {"timezone": "Europe/Prague", "cityName": "Prague", "cityLocalizedName": "布拉格", "latitude": 50.083333, "longitude": 14.416667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "RO",
+    "countryName": "Romania",
+    "timezones": [
+      {"timezone": "Europe/Bucharest", "cityName": "Bucharest", "cityLocalizedName": "布加勒斯特", "latitude": 44.433333, "longitude": 26.1, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "HU",
+    "countryName": "Hungary",
+    "timezones": [
+      {"timezone": "Europe/Budapest", "cityName": "Budapest", "cityLocalizedName": "布达佩斯", "latitude": 47.5, "longitude": 19.033333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "UA",
+    "countryName": "Ukraine",
+    "timezones": [
+      {"timezone": "Europe/Kiev", "cityName": "Kyiv", "cityLocalizedName": "基辅", "latitude": 50.45, "longitude": 30.516667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "MY",
+    "countryName": "Malaysia",
+    "timezones": [
+      {"timezone": "Asia/Kuala_Lumpur", "cityName": "Kuala Lumpur", "cityLocalizedName": "吉隆坡", "latitude": 3.133333, "longitude": 101.683333, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "KE",
+    "countryName": "Kenya",
+    "timezones": [
+      {"timezone": "Africa/Nairobi", "cityName": "Nairobi", "cityLocalizedName": "内罗毕", "latitude": -1.283333, "longitude": 36.816667, "isCapital": true}
+    ]
+  },
+  {
+    "countryCode": "MA",
+    "countryName": "Morocco",
+    "timezones": [
+      {"timezone": "Africa/Casablanca", "cityName": "Casablanca", "cityLocalizedName": "卡萨布兰卡", "latitude": 33.583333, "longitude": -7.616667, "isCapital": false}
+    ]
+  },
+  {
+    "countryCode": "IE",
+    "countryName": "Ireland",
+    "timezones": [
+      {"timezone": "Europe/Dublin", "cityName": "Dublin", "cityLocalizedName": "都柏林", "latitude": 53.333333, "longitude": -6.25, "isCapital": true}
+    ]
+  }
+]
