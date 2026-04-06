@@ -94,20 +94,13 @@ Sources/MyTime/
     └── Localizable.xcstrings # 本地化字符串
 ```
 
-## 构建与运行
+## 可用命令
 
-```bash
-# 解析依赖
-swift package resolve
-
-# 构建
-swift build
-
-# 运行
-swift run
-```
-
-或在 Xcode 中打开项目进行构建。
+| 命令 | 说明 |
+| --- | --- |
+| `swift run` / `swift run app` | 运行应用 |
+| `swift run MyTime` | 运行应用（完整名称） |
+| `swift package dmg` | 构建 release 版本并创建 DMG |
 
 ## 使用说明
 

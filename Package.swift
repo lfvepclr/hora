@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "MyTime", targets: ["MyTime"]),
+        .executable(name: "app", targets: ["MyTime"]),
         .plugin(name: "DMGBuilder", targets: ["DMGBuilder"])
     ],
     dependencies: [
@@ -37,8 +38,8 @@ let package = Package(
             name: "DMGBuilder",
             capability: .command(
                 intent: .custom(
-                    verb: "create-dmg",
-                    description: "Create DMG with Ad-Hoc signing"
+                    verb: "dmg",
+                    description: "Build release and create DMG with Ad-Hoc signing"
                 ),
                 permissions: [.writeToPackageDirectory(reason: "Create DMG")]
             ),

@@ -23,9 +23,6 @@ struct DMGBuilder {
             ("512x512@2x", 1024)
         ]
         
-        // 首先将 SVG 转换为临时 PNG (使用 sips 的 -s format 选项)
-        let tempPngPath = "\(iconsetPath)/temp_icon.png"
-        
         // 使用 qlmanage 或 textutil 预览并转换 SVG
         let qlProcess = Process()
         qlProcess.executableURL = URL(fileURLWithPath: "/usr/bin/qlmanage")
@@ -217,7 +214,7 @@ struct DMGBuilder {
             "-attach",
             tempDmgPath
         ]
-        var createOutputPipe = Pipe()
+        let createOutputPipe = Pipe()
         createProcess.standardOutput = createOutputPipe
         createProcess.standardError = createOutputPipe
         try createProcess.run()
@@ -282,7 +279,7 @@ struct DMGBuilder {
         let mountPoint = "/Volumes/\(appName)"
         
         // 等待挂载完成
-        Thread.sleep(forTimeInterval: 1.0)
+        try await Task.sleep(for: .seconds(1.0))
         
         // 复制文件到 DMG
         print("📁 Copying files to DMG...")
