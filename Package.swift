@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .executable(name: "MyTime", targets: ["MyTime"]),
         .executable(name: "app", targets: ["MyTime"]),
+        .executable(name: "dmg", targets: ["DMGBuilderExec"]),
         .plugin(name: "DMGBuilder", targets: ["DMGBuilder"])
     ],
     dependencies: [

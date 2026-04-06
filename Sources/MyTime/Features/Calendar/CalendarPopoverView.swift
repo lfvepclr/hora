@@ -342,7 +342,7 @@ struct DateDetailPanel: View {
                 VStack(spacing: 4) {
                     // 大号时间数字
                     Text(timeString)
-                        .font(.system(size: 40, weight: .light))
+                        .font(.system(size: 30, weight: .light))
                     
                     // 地点图标 + 时区名称
                     HStack(spacing: 4) {
@@ -353,13 +353,13 @@ struct DateDetailPanel: View {
                     }
                     .opacity(0.85)
                 }
-                .frame(width: 110, height: 70)
+                .frame(width: 90, height: 75)
                 .background(Color.white.opacity(0.2))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())
-            .cornerRadius(8)
+            .cornerRadius(12)
             .onHover { isHovering in
                 if isHovering {
                     NSCursor.pointingHand.push()
@@ -369,19 +369,35 @@ struct DateDetailPanel: View {
             }
             
             // 农历日期
-            Text("\(lunarInfo.lunarMonth)\(lunarInfo.lunarDay)")
-                .font(.system(size: 14))
-                .opacity(0.95)
             
-            // 干支 + 生肖
-            Text("\(lunarInfo.ganZhiYear)年 \(lunarInfo.zodiac)年")
-                .font(.system(size: 11))
-                .opacity(0.85)
+            HStack(spacing: 6) {
+                Text("\(lunarInfo.lunarMonth)\(lunarInfo.lunarDay)")
+                    .font(.system(size: 14))
+                    .opacity(0.95)
+                // 生肖年
+                Text("\(lunarInfo.zodiac)年")
+                    .font(.system(size: 11))
+                    .opacity(0.8)
+            }
             
-            // 干支月日
-            Text("\(lunarInfo.ganZhiMonth)月 \(lunarInfo.ganZhiDay)日")
-                .font(.system(size: 11))
-                .opacity(0.85)
+            // 干支五行（年柱 | 月柱 | 日柱）
+            HStack(spacing: 6) {
+                Text(lunarInfo.ganZhiYear)
+                    .font(.system(size: 11, weight: .medium))
+                Text("|")
+                    .font(.system(size: 10))
+                    .opacity(0.5)
+                Text(lunarInfo.ganZhiMonth)
+                    .font(.system(size: 11, weight: .medium))
+                Text("|")
+                    .font(.system(size: 10))
+                    .opacity(0.5)
+                Text(lunarInfo.ganZhiDay)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .opacity(0.85)
+            
+    
             
             // 节假日名称（如果有）
             if let holiday = holidayName {
