@@ -51,5 +51,14 @@ let package = Package(
             name: "DMGBuilderExec",
             dependencies: []
         ),
+        
+        // 测试目标
+        .testTarget(
+            name: "MyTimeTests",
+            dependencies: ["MyTime"],
+            resources: [
+                .copy("world.json"),
+            ]
+        ),
     ]
 )
