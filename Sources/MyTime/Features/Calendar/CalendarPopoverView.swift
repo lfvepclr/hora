@@ -36,20 +36,16 @@ struct CalendarPopoverView: View {
                                 }
                             },
                             onWorldClockTap: {
-                            // 先调整窗口位置（预留世界时钟宽度），再显示世界时钟视图
-                            let worldClockWidth: CGFloat = 780
-                            NotificationCenter.default.post(
-                                name: .adjustPopoverPosition,
-                                object: nil,
-                                userInfo: ["totalWidth": worldClockWidth]
-                            )
-                            // 延迟显示世界时钟，让窗口位置调整完成
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                // 先调整窗口大小，再显示世界时钟
+                                NotificationCenter.default.post(
+                                    name: .adjustPopoverSize,
+                                    object: nil,
+                                    userInfo: ["width": 780]
+                                )
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     showWorldClock = true
                                 }
                             }
-                        }
                         )
                         .frame(width: 160)
                     }
@@ -64,18 +60,6 @@ struct CalendarPopoverView: View {
                         )
                         .frame(width: almanacWidth, height: 380)
                         .transition(.move(edge: .trailing))
-                        .onAppear {
-                            // 黄历子窗口显示后，调整 popover 位置
-                            // 延迟执行，确保窗口大小已更新
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                let totalWidth = mainWidth + almanacWidth
-                                NotificationCenter.default.post(
-                                    name: .adjustPopoverPosition,
-                                    object: nil,
-                                    userInfo: ["totalWidth": totalWidth]
-                                )
-                            }
-                        }
                     }
                 }
                 .onChange(of: viewModel.selectedDate) {

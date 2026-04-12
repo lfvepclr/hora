@@ -194,6 +194,6 @@ struct NativeWorldClockView: View {
 // MARK: - Preview
 
 #Preview {
-    NativeWorldClockView(viewModel: WorldClockViewModel())
+    NativeWorldClockView(viewModel: WorldClockViewModel.shared)
         .frame(width: 1000, height: 600)
 }

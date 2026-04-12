@@ -5,7 +5,7 @@ import MapKit
 
 struct WorldClockPopupView: View {
     @Binding var isPresented: Bool
-    @StateObject private var viewModel = WorldClockViewModel()
+    @StateObject private var viewModel = WorldClockViewModel.shared
     @State private var selectedCity: WorldCity?
     @State private var hoveredCity: WorldCity?
     
@@ -142,6 +142,8 @@ struct TopControlBar: View {
 
 @MainActor
 class WorldClockViewModel: ObservableObject {
+    static let shared = WorldClockViewModel()
+    
     @Published var currentTime = Date()
     @Published var currentCity: WorldCity
     
@@ -149,7 +151,7 @@ class WorldClockViewModel: ObservableObject {
     
     nonisolated(unsafe) private var timer: Timer?
     
-    init() {
+    private init() {
         // 使用 CityDataService 获取城市数据
         let cityService = CityDataService.shared
         self.cities = cityService.cities

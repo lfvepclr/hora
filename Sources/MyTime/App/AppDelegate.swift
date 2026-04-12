@@ -1,9 +1,10 @@
 import Cocoa
 import SwiftUI
 
-// 通知名称：调整 popover 位置
+// 通知名称：调整 popover 位置和大小
 extension Notification.Name {
     static let adjustPopoverPosition = Notification.Name("adjustPopoverPosition")
+    static let adjustPopoverSize = Notification.Name("adjustPopoverSize")
 }
 
 @MainActor
@@ -53,6 +54,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleAdjustPopoverPosition),
             name: .adjustPopoverPosition,
+            object: nil
+        )
+        
+        // 监听调整 popover 大小的通知
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAdjustPopoverSize),
+            name: .adjustPopoverSize,
             object: nil
         )
     }
@@ -210,29 +219,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func openPopover() {
         guard let button = statusItem.button else { return }
-        
+    
         let popover = NSPopover()
         popover.behavior = .semitransient  // 允许立即响应点击，点击外部关闭
-        popover.contentSize = NSSize(width: 320, height: 400)
-        
+            
+        // 初始窗口大小为日历大小（500x380）
+        let initialSize = NSSize(width: 500, height: 380)
+        // 世界时钟大小（780x380）- 用于计算位置
+        let maxSize = NSSize(width: 780, height: 380)
+        popover.contentSize = initialSize
+    
         // 使用 SwiftUI 视图
         let contentView = CalendarPopoverView()
         let hostingController = NSHostingController(rootView: contentView)
         popover.contentViewController = hostingController
         popover.delegate = self
+    
+        // 计算初始窗口位置，确保能容纳世界时钟大小（不超出屏幕边界）
+        let buttonBounds = button.bounds
+        let screen = NSScreen.main
+        let screenFrame = screen?.visibleFrame ?? NSRect.zero
+            
+        // 显示 popover
+        popover.show(relativeTo: buttonBounds, of: button, preferredEdge: .maxY)
         
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+        // 立即调整窗口位置，确保能容纳世界时钟大小（不超出屏幕右边界）
+        if let popoverWindow = popover.contentViewController?.view.window {
+            let windowFrame = popoverWindow.frame
+            let rightMargin: CGFloat = 20
+            let screenRightEdge = screenFrame.origin.x + screenFrame.width
+            let maxWindowRightEdge = windowFrame.origin.x + maxSize.width
+                
+            // 如果世界时钟大小的窗口右边缘超出屏幕，调整位置
+            if maxWindowRightEdge > screenRightEdge - rightMargin {
+                let overflow = maxWindowRightEdge - (screenRightEdge - rightMargin)
+                let newOrigin = CGPoint(
+                    x: windowFrame.origin.x - overflow - 10,
+                    y: windowFrame.origin.y
+                )
+                popoverWindow.setFrameOrigin(newOrigin)
+            }
+        }
+            
         presentedPopover = popover
-        
+    
         // 激活应用并让 popover 获取焦点
         NSApp.activate(ignoringOtherApps: true)
-        
+    
         // 让 popover 内容视图成为第一响应者，确保立即响应点击
         popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
-        
+    
         // 保持按钮高亮
         button.highlight(true)
-        
+    
         // 清除 tooltip 防止重叠
         button.toolTip = nil
     }
@@ -249,9 +288,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleAdjustPopoverPosition(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
               let totalWidth = userInfo["totalWidth"] as? CGFloat else { return }
-        
+    
         Task { @MainActor [weak self] in
             self?.adjustPopoverPosition(totalWidth: totalWidth)
+        }
+    }
+        
+    // 处理调整 popover 大小的通知
+    @objc private func handleAdjustPopoverSize(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let width = userInfo["width"] as? CGFloat else { return }
+    
+        Task { @MainActor [weak self] in
+            self?.adjustPopoverSize(width: width)
         }
     }
     
@@ -280,6 +329,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
             popoverWindow.setFrameOrigin(newOrigin)
         }
+    }
+    
+    // 调整 popover 大小（位置已在打开时预设好）
+    @MainActor
+    private func adjustPopoverSize(width: CGFloat) {
+        guard let popover = presentedPopover else { return }
+        
+        // 直接设置新的大小
+        popover.contentSize = NSSize(width: width, height: 380)
     }
 }
 
