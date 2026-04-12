@@ -102,7 +102,7 @@ Sources/MyTime/
 | --- | --- |
 | `swift run` / `swift run app` | 运行应用 |
 | `swift run MyTime` | 运行应用（完整名称） |
-| `swift package dmg` | 构建 release 版本并创建 DMG |
+| `swift run dmg` | 构建 release 版本并创建 DMG |
 
 ## 使用说明
 
