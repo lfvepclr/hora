@@ -36,10 +36,20 @@ struct CalendarPopoverView: View {
                                 }
                             },
                             onWorldClockTap: {
+                            // 先调整窗口位置（预留世界时钟宽度），再显示世界时钟视图
+                            let worldClockWidth: CGFloat = 780
+                            NotificationCenter.default.post(
+                                name: .adjustPopoverPosition,
+                                object: nil,
+                                userInfo: ["totalWidth": worldClockWidth]
+                            )
+                            // 延迟显示世界时钟，让窗口位置调整完成
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     showWorldClock = true
                                 }
                             }
+                        }
                         )
                         .frame(width: 160)
                     }

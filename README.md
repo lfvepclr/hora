@@ -100,7 +100,7 @@ Sources/MyTime/
 
 | 命令 | 说明 |
 | --- | --- |
-| `swift run` / `swift run app` | 运行应用 |
+| `swift run app` | 运行应用 |
 | `swift run MyTime` | 运行应用（完整名称） |
 | `swift run dmg` | 构建 release 版本并创建 DMG |
 
