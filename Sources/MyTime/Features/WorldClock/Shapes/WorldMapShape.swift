@@ -47,21 +47,29 @@ struct CountryShape: Shape {
 
 // MARK: - World Map View
 
-/// 世界地图视图 - 单个Shape渲染所有国家（纯展示，不处理交互）
+/// 世界地图视图 - 使用预渲染位图显示（零Shape开销）
 struct WorldMapView: View {
     let mapService: WorldMapDataService
     let scale: CGFloat
     let offset: CGSize
     
     var body: some View {
-        // 底图：单个Shape渲染所有国家（一个 Path）
-        WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
-            .fill(Color(red: 0.56, green: 0.77, blue: 0.97))
-            .overlay(
-                WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
-                    .stroke(Color(red: 0.66, green: 0.82, blue: 0.98), lineWidth: 0.5)
-            )
-        .clipped()
+        if let nsImage = mapService.renderedMapImage {
+            // 使用预渲染位图，零Shape计算开销
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .clipped()
+        } else if !mapService.countries.isEmpty {
+            // 回退：数据还未预渲染时使用Shape
+            WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
+                .fill(Color(red: 0.56, green: 0.77, blue: 0.97))
+                .overlay(
+                    WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
+                        .stroke(Color(red: 0.35, green: 0.55, blue: 0.78), lineWidth: 0.5)
+                )
+                .clipped()
+        }
     }
 }
 

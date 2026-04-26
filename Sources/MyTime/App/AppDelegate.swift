@@ -57,6 +57,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await WorldMapDataService.shared.ensureLoaded()
         }
         
+        // 后台预热当月日历数据（农历+节假日），确保首次打开0延迟
+        Task { @MainActor in
+            LunarCalendarService.shared.preWarmCurrentMonth()
+            HolidayService.shared.preWarmCurrentMonth()
+        }
+        
         // 监听日期变化
         NotificationCenter.default.addObserver(
             self,
@@ -357,8 +363,7 @@ extension AppDelegate: NSPopoverDelegate {
     }
     
     func popoverDidClose(_ notification: Notification) {
-        DateFormatterCache.clearCache()
-        HolidayService.shared.clearCache()
-        LunarCalendarService.shared.clearCache()
+        // 不再清空缓存：保持缓存温热确保下次秒开
+        // 缓存自身的 maxCacheSize 限制已提供内存保护
     }
 }

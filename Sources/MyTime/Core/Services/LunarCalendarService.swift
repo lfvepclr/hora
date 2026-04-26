@@ -7,12 +7,19 @@ import LunarSwift
 class LunarCalendarService {
     static let shared = LunarCalendarService()
     
-    // 缓存（限制400条，约覆盖一年+）
+    // 缓存（使用有序字典支持LRU驱逐）
     private var lunarCache: [String: LunarInfo] = [:]
     private var almanacCache: [String: AlmanacData] = [:]
     private var festivalCache: [String: String?] = [:]
     private var solarTermCache: [String: String?] = [:]
-    private let maxCacheSize = 200
+    private var lunarOrder: [String] = []
+    private var almanacOrder: [String] = []
+    private var festivalOrder: [String] = []
+    private var solarTermOrder: [String] = []
+    private let maxLunarCache = 100
+    private let maxAlmanacCache = 50
+    private let maxFestivalCache = 100
+    private let maxSolarTermCache = 100
     
     private init() {}
     
@@ -30,10 +37,30 @@ class LunarCalendarService {
     }
     
     private func trimCacheIfNeeded() {
-        if lunarCache.count > maxCacheSize { lunarCache.removeAll() }
-        if almanacCache.count > maxCacheSize { almanacCache.removeAll() }
-        if festivalCache.count > maxCacheSize { festivalCache.removeAll() }
-        if solarTermCache.count > maxCacheSize { solarTermCache.removeAll() }
+        if lunarCache.count > maxLunarCache {
+            let removeCount = lunarCache.count / 2
+            let keysToRemove = Array(lunarOrder.prefix(removeCount))
+            keysToRemove.forEach { lunarCache.removeValue(forKey: $0) }
+            lunarOrder.removeFirst(removeCount)
+        }
+        if almanacCache.count > maxAlmanacCache {
+            let removeCount = almanacCache.count / 2
+            let keysToRemove = Array(almanacOrder.prefix(removeCount))
+            keysToRemove.forEach { almanacCache.removeValue(forKey: $0) }
+            almanacOrder.removeFirst(removeCount)
+        }
+        if festivalCache.count > maxFestivalCache {
+            let removeCount = festivalCache.count / 2
+            let keysToRemove = Array(festivalOrder.prefix(removeCount))
+            keysToRemove.forEach { festivalCache.removeValue(forKey: $0) }
+            festivalOrder.removeFirst(removeCount)
+        }
+        if solarTermCache.count > maxSolarTermCache {
+            let removeCount = solarTermCache.count / 2
+            let keysToRemove = Array(solarTermOrder.prefix(removeCount))
+            keysToRemove.forEach { solarTermCache.removeValue(forKey: $0) }
+            solarTermOrder.removeFirst(removeCount)
+        }
     }
     
     func clearCache() {
@@ -41,6 +68,46 @@ class LunarCalendarService {
         almanacCache.removeAll()
         festivalCache.removeAll()
         solarTermCache.removeAll()
+        lunarOrder.removeAll()
+        almanacOrder.removeAll()
+        festivalOrder.removeAll()
+        solarTermOrder.removeAll()
+    }
+    
+    /// 预热当月日历数据（42天），确保首次打开0延迟
+    func preWarmCurrentMonth() {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return }
+        
+        var date = monthInterval.start
+        let weekday = calendar.component(.weekday, from: date)
+        let leadingDays = weekday == 1 ? 6 : weekday - 2
+        
+        // 前置天数
+        var dates: [Date] = []
+        for i in 1...leadingDays {
+            if let prevDate = calendar.date(byAdding: .day, value: -i, to: date) {
+                dates.insert(prevDate, at: 0)
+            }
+        }
+        // 当月天数
+        while date < monthInterval.end {
+            dates.append(date)
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+        // 填满42天
+        while dates.count < 42 {
+            dates.append(date)
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+        
+        // 预热所有缓存
+        for d in dates {
+            _ = getLunarInfo(for: d)
+            _ = getLunarFestival(for: d)
+            _ = getSolarTerm(for: d)
+        }
     }
     
     /// 获取指定日期的农历信息
@@ -72,6 +139,7 @@ class LunarCalendarService {
             isLeapMonth: isLeap
         )
         lunarCache[key] = result
+        lunarOrder.append(key)
         return result
     }
     
@@ -103,6 +171,7 @@ class LunarCalendarService {
             xingXiu: lunar.xiu
         )
         almanacCache[key] = result
+        almanacOrder.append(key)
         return result
     }
     
@@ -143,6 +212,7 @@ class LunarCalendarService {
         let jieQi = lunar.jieQi
         let result = jieQi.isEmpty ? nil : jieQi
         solarTermCache[key] = result
+        solarTermOrder.append(key)
         return result
     }
     
@@ -162,6 +232,7 @@ class LunarCalendarService {
         if !lunar.festivals.isEmpty {
             let result = lunar.festivals.first
             festivalCache[key] = result
+            festivalOrder.append(key)
             return result
         }
         
@@ -169,10 +240,12 @@ class LunarCalendarService {
         if !solar.festivals.isEmpty {
             let result = solar.festivals.first
             festivalCache[key] = result
+            festivalOrder.append(key)
             return result
         }
         
         festivalCache[key] = nil
+        festivalOrder.append(key)
         return nil
     }
 }

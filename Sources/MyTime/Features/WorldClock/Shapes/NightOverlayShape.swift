@@ -254,7 +254,7 @@ struct NightOverlayShape: Shape {
 
 // MARK: - Night Overlay View
 
-/// 昼夜分界线视图 - 只在分钟变化时重绘
+/// 昼夜分界线视图 - 使用Canvas替代Shape，避免Metal纹理分配
 struct NightOverlayView: View {
     let date: Date
     let mapService: WorldMapDataService
@@ -278,16 +278,30 @@ struct NightOverlayView: View {
             height: viewSize.height / scale
         )
         
-        return NightOverlayShape(
+        let nightShape = NightOverlayShape(
             date: minuteDate,
             mapBounds: overlayBounds,
             transform: mapService.transform,
             yMid: mapService.yMid,
             viewHeight: viewSize.height > 0 ? viewSize.height : mapService.mapBounds.height
         )
-        .fill(Color(red: 11/255, green: 31/255, blue: 70/255, opacity: 0.65), style: FillStyle(eoFill: true))
-        .scaleEffect(scale, anchor: .topLeading)
-        .offset(offset)
+        
+        // 使用Canvas直接绘制，不创建Metal纹理缓冲区
+        Canvas { context, size in
+            let rect = CGRect(origin: .zero, size: size)
+            let path = nightShape.path(in: rect)
+            
+            // 应用缩放和偏移
+            var transform = CGAffineTransform.identity
+            transform = transform.translatedBy(x: offset.width, y: offset.height)
+            transform = transform.scaledBy(x: scale, y: scale)
+            
+            let transformedPath = path.applying(transform)
+            context.fill(
+                transformedPath,
+                with: .color(Color(red: 11/255, green: 31/255, blue: 70/255, opacity: 0.65))
+            )
+        }
         .allowsHitTesting(false)
     }
 }

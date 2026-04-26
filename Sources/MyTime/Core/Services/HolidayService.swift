@@ -7,10 +7,11 @@ import LunarSwift
 class HolidayService {
     static let shared = HolidayService()
     
-    // 缓存
+    // 缓存（LRU驱逐策略）
     private var typeCache: [String: HolidayType?] = [:]
     private var nameCache: [String: String?] = [:]
-    private let maxCacheSize = 200
+    private var cacheOrder: [String] = []
+    private let maxCacheSize = 100
     
     private init() {}
     
@@ -35,10 +36,16 @@ class HolidayService {
         
         let result: HolidayType = holiday.work ? .workday : .holiday
         if typeCache.count > maxCacheSize {
-            typeCache.removeAll()
-            nameCache.removeAll()
+            let removeCount = typeCache.count / 2
+            let keysToRemove = Array(cacheOrder.prefix(removeCount))
+            keysToRemove.forEach {
+                typeCache.removeValue(forKey: $0)
+                nameCache.removeValue(forKey: $0)
+            }
+            cacheOrder.removeFirst(removeCount)
         }
         typeCache[key] = result
+        if !cacheOrder.contains(key) { cacheOrder.append(key) }
         return result
     }
     
@@ -54,9 +61,16 @@ class HolidayService {
         
         let result = HolidayUtil.getHolidayByYmd(year: year, month: month, day: day)?.name
         if nameCache.count > maxCacheSize {
-            nameCache.removeAll()
+            let removeCount = nameCache.count / 2
+            let keysToRemove = Array(cacheOrder.prefix(removeCount))
+            keysToRemove.forEach {
+                typeCache.removeValue(forKey: $0)
+                nameCache.removeValue(forKey: $0)
+            }
+            cacheOrder.removeFirst(removeCount)
         }
         nameCache[key] = result
+        if !cacheOrder.contains(key) { cacheOrder.append(key) }
         return result
     }
     
@@ -73,6 +87,38 @@ class HolidayService {
     func clearCache() {
         typeCache.removeAll()
         nameCache.removeAll()
+        cacheOrder.removeAll()
+    }
+    
+    /// 预热当月日历数据（42天）
+    func preWarmCurrentMonth() {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return }
+        
+        var date = monthInterval.start
+        let weekday = calendar.component(.weekday, from: date)
+        let leadingDays = weekday == 1 ? 6 : weekday - 2
+        
+        var dates: [Date] = []
+        for i in 1...leadingDays {
+            if let prevDate = calendar.date(byAdding: .day, value: -i, to: date) {
+                dates.insert(prevDate, at: 0)
+            }
+        }
+        while date < monthInterval.end {
+            dates.append(date)
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+        while dates.count < 42 {
+            dates.append(date)
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+        
+        for d in dates {
+            _ = getHolidayType(for: d)
+            _ = getHolidayName(for: d)
+        }
     }
 }
 

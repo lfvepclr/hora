@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import CoreGraphics
+import AppKit
 
 // MARK: - World Map Data Service
 
@@ -17,8 +18,14 @@ class WorldMapDataService {
     /// 坐标转换参数
     private(set) var transform: HCTransform?
     
-    /// 已处理的国家路径数据（包含Path坐标）
+    /// 已处理的国家路径数据（包含Path坐标，渲染完位图后释放）
     private(set) var countries: [CountryPathData] = []
+    
+    /// 预渲染的地图位图（替代Shape实时渲染，大幅降低内存和CPU开销）
+    private(set) var renderedMapImage: NSImage?
+    
+    /// 轻量级国家命中测试数据（仅保留boundingBox和简化polygon用于交互）
+    private(set) var countryHitData: [CountryHitData] = []
     
     /// 国家时区映射
     private(set) var countryTimezones: [String: CountryTimezoneInfo] = [:]
@@ -54,17 +61,111 @@ class WorldMapDataService {
         
         await loadMapData()
         await loadCountryTimezones()
+        
+        // 预渲染地图位图并释放原始路径数据
+        preRenderMapImage()
+        
         isLoaded = true
     }
     
     /// 释放地图数据（世界时钟关闭时调用）
     func unload() {
         countries = []
+        countryHitData = []
         countryTimezones = [:]
         mapBounds = .null
         transform = nil
         yMid = 0
+        renderedMapImage = nil
         isLoaded = false
+    }
+    
+    // MARK: - Pre-render Map Image
+    
+    /// 预渲染地图为NSImage位图，然后释放pathPoints节省内存
+    private func preRenderMapImage() {
+        guard !countries.isEmpty, mapBounds != .null else { return }
+        
+        // 固定渲染分辨率（2x Retina）
+        let renderWidth: CGFloat = 1560
+        let renderHeight: CGFloat = 760
+        
+        // 计算渲染用的scale和offset
+        let scaleX = renderWidth / mapBounds.width
+        let scaleY = renderHeight / mapBounds.height
+        let renderScale = min(scaleX, scaleY)
+        
+        let scaledWidth = mapBounds.width * renderScale
+        let scaledHeight = mapBounds.height * renderScale
+        let renderOffset = CGSize(
+            width: (renderWidth - scaledWidth) / 2 - mapBounds.minX * renderScale,
+            height: (renderHeight - scaledHeight) / 2 - mapBounds.minY * renderScale
+        )
+        
+        // 使用CGContext渲染位图
+        let image = NSImage(size: NSSize(width: renderWidth, height: renderHeight))
+        image.lockFocus()
+        
+        guard let ctx = NSGraphicsContext.current?.cgContext else {
+            image.unlockFocus()
+            return
+        }
+        
+        // 填充色
+        let fillColor = CGColor(red: 0.56, green: 0.77, blue: 0.97, alpha: 1.0)
+        let strokeColor = CGColor(red: 0.35, green: 0.55, blue: 0.78, alpha: 1.0)
+        
+        // 翻转坐标系（NSImage的坐标系是flipped的）
+        ctx.translateBy(x: 0, y: renderHeight)
+        ctx.scaleBy(x: 1, y: -1)
+        
+        for country in countries {
+            let path = CGMutablePath()
+            for polygon in country.pathPoints {
+                guard let first = polygon.first else { continue }
+                let scaledFirst = CGPoint(
+                    x: first.x * renderScale + renderOffset.width,
+                    y: first.y * renderScale + renderOffset.height
+                )
+                path.move(to: scaledFirst)
+                for point in polygon.dropFirst() {
+                    path.addLine(to: CGPoint(
+                        x: point.x * renderScale + renderOffset.width,
+                        y: point.y * renderScale + renderOffset.height
+                    ))
+                }
+                path.closeSubpath()
+            }
+            
+            // 填充
+            ctx.setFillColor(fillColor)
+            ctx.addPath(path)
+            ctx.fillPath()
+            
+            // 描边
+            ctx.setStrokeColor(strokeColor)
+            ctx.setLineWidth(0.5)
+            ctx.addPath(path)
+            ctx.strokePath()
+        }
+        
+        image.unlockFocus()
+        self.renderedMapImage = image
+        
+        // 保存轻量级命中测试数据，然后释放原始pathPoints
+        self.countryHitData = countries.map { country in
+            CountryHitData(
+                id: country.id,
+                name: country.name,
+                boundingBox: country.boundingBox,
+                pathPoints: country.pathPoints
+            )
+        }
+        
+        // 释放重量级的原始countries数组（pathPoints占大量内存）
+        self.countries = []
+        
+        print("Pre-rendered map image (\(Int(renderWidth))x\(Int(renderHeight))), released pathPoints")
     }
     
     // MARK: - Data Loading
@@ -300,13 +401,13 @@ class WorldMapDataService {
     }
     
     /// 根据位置查找国家
-    func findCountry(at point: CGPoint) -> CountryPathData? {
+    func findCountry(at point: CGPoint) -> CountryHitData? {
         // 先用边界框过滤
-        let candidates = countries.filter { $0.boundingBox.contains(point) }
+        let candidates = countryHitData.filter { $0.boundingBox.contains(point) }
         
         // 再用点在多边形检测
         for country in candidates {
-            if isPointInCountry(point, country: country) {
+            if isPointInCountryHit(point, country: country) {
                 return country
             }
         }
@@ -315,7 +416,7 @@ class WorldMapDataService {
     }
     
     /// 点是否在国家多边形内
-    private func isPointInCountry(_ point: CGPoint, country: CountryPathData) -> Bool {
+    private func isPointInCountryHit(_ point: CGPoint, country: CountryHitData) -> Bool {
         for polygon in country.pathPoints {
             if isPointInPolygon(point, polygon: polygon) {
                 return true
@@ -395,4 +496,14 @@ struct CountryPathData: Identifiable {
         
         return path
     }
+}
+
+// MARK: - Country Hit Data
+
+/// 轻量级国家命中测试数据（用于交互，不用于渲染）
+struct CountryHitData: Identifiable {
+    let id: String
+    let name: String
+    let boundingBox: CGRect
+    let pathPoints: [[CGPoint]]
 }
