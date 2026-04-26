@@ -5,6 +5,7 @@ import SwiftUI
 extension Notification.Name {
     static let adjustPopoverPosition = Notification.Name("adjustPopoverPosition")
     static let adjustPopoverSize = Notification.Name("adjustPopoverSize")
+    static let resetPopoverContent = Notification.Name("resetPopoverContent")
 }
 
 @MainActor
@@ -18,8 +19,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }()
     
-    private weak var presentedPopover: NSPopover?
     private var dateRefreshTimer: Timer?
+    
+    // 懒初始化 popover（复用，避免每次重新创建）
+    private lazy var popover: NSPopover = {
+        let p = NSPopover()
+        p.behavior = .semitransient
+        p.contentSize = NSSize(width: 500, height: 380)
+        let contentView = CalendarPopoverView()
+        p.contentViewController = NSHostingController(rootView: contentView)
+        p.delegate = self
+        return p
+    }()
     
     // MARK: - Lifecycle
     
@@ -39,6 +50,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 self.updateMenuBarIcon()
             }
+        }
+        
+        // 后台预加载世界地图数据（约1MB内存，换取秒开体验）
+        Task.detached(priority: .userInitiated) {
+            await WorldMapDataService.shared.ensureLoaded()
         }
         
         // 监听日期变化
@@ -173,8 +189,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 监听全局点击（点击外部关闭）
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self, let popover = self.presentedPopover, popover.isShown else { return }
-                popover.close()
+                guard let self = self, self.popover.isShown else { return }
+                self.popover.close()
             }
         }
     }
@@ -209,36 +225,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func togglePopover() {
-        if let popover = presentedPopover, popover.isShown {
+        if popover.isShown {
             popover.close()
         } else {
-            openPopover()
+            showPopover()
         }
     }
     
     @MainActor
-    private func openPopover() {
+    private func showPopover() {
         guard let button = statusItem.button else { return }
     
-        let popover = NSPopover()
-        popover.behavior = .semitransient  // 允许立即响应点击，点击外部关闭
-            
-        // 初始窗口大小为日历大小（500x380）
-        let initialSize = NSSize(width: 500, height: 380)
-        // 世界时钟大小（780x380）- 用于计算位置
-        let maxSize = NSSize(width: 780, height: 380)
-        popover.contentSize = initialSize
-    
-        // 使用 SwiftUI 视图
-        let contentView = CalendarPopoverView()
-        let hostingController = NSHostingController(rootView: contentView)
-        popover.contentViewController = hostingController
-        popover.delegate = self
+        // 重置到日历视图
+        popover.contentSize = NSSize(width: 500, height: 380)
+        NotificationCenter.default.post(name: .resetPopoverContent, object: nil)
     
         // 计算初始窗口位置，确保能容纳世界时钟大小（不超出屏幕边界）
         let buttonBounds = button.bounds
         let screen = NSScreen.main
         let screenFrame = screen?.visibleFrame ?? NSRect.zero
+        let maxSize = NSSize(width: 780, height: 380)
             
         // 显示 popover
         popover.show(relativeTo: buttonBounds, of: button, preferredEdge: .maxY)
@@ -260,8 +266,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 popoverWindow.setFrameOrigin(newOrigin)
             }
         }
-            
-        presentedPopover = popover
     
         // 激活应用并让 popover 获取焦点
         NSApp.activate(ignoringOtherApps: true)
@@ -307,7 +311,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // 调整 popover 位置，确保完全显示在屏幕内
     @MainActor
     private func adjustPopoverPosition(totalWidth: CGFloat) {
-        guard let popover = presentedPopover,
+        guard popover.isShown,
               let popoverWindow = popover.contentViewController?.view.window,
               let screen = NSScreen.main else { return }
     
@@ -334,7 +338,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // 调整 popover 大小（位置已在打开时预设好）
     @MainActor
     private func adjustPopoverSize(width: CGFloat) {
-        guard let popover = presentedPopover else { return }
+        guard popover.isShown else { return }
         
         // 直接设置新的大小
         popover.contentSize = NSSize(width: width, height: 380)
@@ -353,6 +357,8 @@ extension AppDelegate: NSPopoverDelegate {
     }
     
     func popoverDidClose(_ notification: Notification) {
-        presentedPopover = nil
+        DateFormatterCache.clearCache()
+        HolidayService.shared.clearCache()
+        LunarCalendarService.shared.clearCache()
     }
 }

@@ -1,5 +1,15 @@
 import Foundation
 
+private struct CitiesConfig: Codable {
+    let defaultCity: WorldCity
+    let almanacTimezones: [String]?
+}
+
+private struct CitiesData: Codable {
+    let config: CitiesConfig
+    let cities: [WorldCity]
+}
+
 /// 城市数据服务 - 统一管理城市数据加载和查询
 @MainActor
 class CityDataService {
@@ -29,33 +39,23 @@ class CityDataService {
         }
         
         guard let fileURL = url,
-              let data = try? Data(contentsOf: fileURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+              let data = try? Data(contentsOf: fileURL) else {
             fatalError("Failed to load Cities.json - city data is required. Searched in: \(Bundle.main.bundlePath), module: \(Bundle.module.bundlePath)")
         }
         
-        // 加载配置
-        guard let config = json["config"] as? [String: Any] else {
-            fatalError("Cities.json missing 'config' section")
+        let decoder = JSONDecoder()
+        guard let citiesData = try? decoder.decode(CitiesData.self, from: data) else {
+            fatalError("Failed to decode Cities.json")
         }
         
-        guard let defaultCityDict = config["defaultCity"] as? [String: Any],
-              let city = WorldCity(from: defaultCityDict) else {
-            fatalError("Cities.json config missing valid 'defaultCity' object")
-        }
-        defaultCity = city
+        defaultCity = citiesData.config.defaultCity
         
         // almanacTimezones is optional
-        if let tzList = config["almanacTimezones"] as? [String] {
+        if let tzList = citiesData.config.almanacTimezones {
             almanacTimezones = Set(tzList)
         }
         
-        // 加载城市数据
-        guard let citiesArray = json["cities"] as? [[String: Any]] else {
-            fatalError("Cities.json contains no cities array")
-        }
-        
-        cities = citiesArray.compactMap { WorldCity(from: $0) }
+        cities = citiesData.cities
         guard !cities.isEmpty else {
             fatalError("Cities.json contains no valid city data")
         }

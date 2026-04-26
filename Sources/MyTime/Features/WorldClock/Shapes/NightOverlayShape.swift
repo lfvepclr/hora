@@ -14,24 +14,39 @@ struct NightOverlayShape: Shape {
     /// 地球半径（米）- Miller投影使用等面积半径
     private let R_A: Double = 6371007.2
     
-    /// 经度采样步长（度）- 减小以获得更平滑的曲线
-    private let precisionLng: Double = 1.0
-    /// 纬度采样步长（度）
-    private let precisionLat: Double = 0.5
+    /// 经度采样步长（度）- 3度步长足够平滑且性能优异
+    private let precisionLng: Double = 3.0
     
     func path(in rect: CGRect) -> Path {
         guard transform != nil else { return Path() }
         
-        // 判断北极是否为白天
-        let northSun = isNorthSun()
+        // 预计算太阳常量（一次性计算，避免每个经度重复）
+        let calendar = Calendar(identifier: .gregorian)
+        var utcCalendar = calendar
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
         
-        // 收集昼夜分界线上的坐标点（更密集的采样）
+        let hour = Double(utcCalendar.component(.hour, from: date))
+        let minute = Double(utcCalendar.component(.minute, from: date))
+        let utcHours = hour + minute / 60.0
+        
+        let dayOfYear = getDayOfYear(date, calendar: utcCalendar)
+        
+        // 太阳赤纬
+        let declination = 23.45 * sin(2 * Double.pi / 365.0 * Double(dayOfYear - 81))
+        let decRad = declination * Double.pi / 180.0
+        
+        // 太阳正午经度
+        let solarNoonLon = -(utcHours - 12.0) * 15.0
+        
+        // 判断北极是否为白天
+        let northSun = declination > 0
+        
+        // 用解析公式直接计算昼夜分界线纬度（替代二分法，性能提升100倍+）
         var terminatorCoords: [(lat: Double, lon: Double)] = []
         
         for lon in stride(from: -180.0, through: 180.0, by: precisionLng) {
-            if let lat = getSunriseSunsetLatitude(lon: lon, northSun: northSun) {
-                terminatorCoords.append((lat: lat, lon: lon))
-            }
+            let lat = terminatorLatitude(longitude: lon, decRad: decRad, solarNoonLon: solarNoonLon)
+            terminatorCoords.append((lat: lat, lon: lon))
         }
         
         guard terminatorCoords.count >= 3 else { return Path() }
@@ -49,97 +64,20 @@ struct NightOverlayShape: Shape {
     
     // MARK: - Solar Position Calculation
     
-    /// 判断北极是否为白天
-    private func isNorthSun() -> Bool {
-        return isDaylight(latitude: 90, longitude: 0)
-    }
-    
-    /// 判断指定位置是否为白天（太阳高度角 > 0）
-    private func isDaylight(latitude: Double, longitude: Double) -> Bool {
-        let sunAltitude = getSunAltitude(latitude: latitude, longitude: longitude)
-        return sunAltitude > 0
-    }
-    
-    /// 计算指定位置的太阳高度角
-    private func getSunAltitude(latitude: Double, longitude: Double) -> Double {
-        let calendar = Calendar(identifier: .gregorian)
-        var utcCalendar = calendar
-        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+    /// 解析计算昼夜分界线纬度（替代二分法，性能提升100倍+）
+    /// 当 sinAlt = 0 时：sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(ha) = 0
+    /// => tan(lat) = -cos(ha) / tan(dec) 当 dec != 0
+    private func terminatorLatitude(longitude: Double, decRad: Double, solarNoonLon: Double) -> Double {
+        let hourAngle = (longitude - solarNoonLon) * Double.pi / 180.0
         
-        let hour = Double(utcCalendar.component(.hour, from: date))
-        let minute = Double(utcCalendar.component(.minute, from: date))
-        let utcHours = hour + minute / 60.0
-        
-        let dayOfYear = getDayOfYear(date, calendar: utcCalendar)
-        
-        // 太阳赤纬
-        let declination = 23.45 * sin(2 * Double.pi / 365.0 * Double(dayOfYear - 81))
-        
-        // 太阳正午经度
-        let solarNoonLon = -(utcHours - 12.0) * 15.0
-        let hourAngle = longitude - solarNoonLon
-        
-        let latRad = latitude * Double.pi / 180.0
-        let decRad = declination * Double.pi / 180.0
-        let haRad = hourAngle * Double.pi / 180.0
-        
-        let sinAltitude = sin(latRad) * sin(decRad) + cos(latRad) * cos(decRad) * cos(haRad)
-        let altitude = asin(max(-1.0, min(1.0, sinAltitude))) * 180.0 / Double.pi
-        
-        return altitude
-    }
-    
-    /// 获取指定经度上的昼夜分界纬度（精确到小数）
-    private func getSunriseSunsetLatitude(lon: Double, northSun: Bool) -> Double? {
-        let startLat: Double
-        let endLat: Double
-        let delta: Double
-        
-        if northSun {
-            startLat = -90
-            endLat = 90
-            delta = precisionLat
-        } else {
-            startLat = 90
-            endLat = -90
-            delta = -precisionLat
+        // 处理赤纬接近0的情况（春秋分点附近）
+        guard abs(decRad) > 0.001 else {
+            return 0
         }
         
-        var lat = startLat
-        var lastIsDaylight = !northSun
-        
-        while (delta > 0 && lat <= endLat) || (delta < 0 && lat >= endLat) {
-            let daylight = isDaylight(latitude: lat, longitude: lon)
-            
-            if daylight && !lastIsDaylight {
-                // 使用二分法精确查找昼夜分界点
-                return findExactTerminatorLatitude(lon: lon, fromLat: lat - delta, toLat: lat)
-            }
-            
-            lastIsDaylight = daylight
-            lat += delta
-        }
-        
-        return northSun ? -90 : 90
-    }
-    
-    /// 二分法精确查找昼夜分界纬度
-    private func findExactTerminatorLatitude(lon: Double, fromLat: Double, toLat: Double, iterations: Int = 10) -> Double {
-        var low = fromLat
-        var high = toLat
-        
-        for _ in 0..<iterations {
-            let mid = (low + high) / 2
-            let isDaylightMid = isDaylight(latitude: mid, longitude: lon)
-            
-            if isDaylightMid {
-                high = mid
-            } else {
-                low = mid
-            }
-        }
-        
-        return (low + high) / 2
+        let tanLat = -cos(hourAngle) / tan(decRad)
+        let lat = atan(max(-100, min(100, tanLat))) * 180.0 / Double.pi
+        return lat
     }
     
     /// 构建平滑的夜晚区域路径（参考 world-daylight-map 的实现）
@@ -316,13 +254,20 @@ struct NightOverlayShape: Shape {
 
 // MARK: - Night Overlay View
 
-/// 昼夜分界线视图
+/// 昼夜分界线视图 - 只在分钟变化时重绘
 struct NightOverlayView: View {
     let date: Date
     let mapService: WorldMapDataService
     let scale: CGFloat
     let offset: CGSize
     let viewSize: CGSize
+    
+    /// 截取到分钟级别，避免每秒重绘
+    private var minuteDate: Date {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components) ?? date
+    }
     
     var body: some View {
         // 计算覆盖整个视图的边界框
@@ -334,7 +279,7 @@ struct NightOverlayView: View {
         )
         
         return NightOverlayShape(
-            date: date,
+            date: minuteDate,
             mapBounds: overlayBounds,
             transform: mapService.transform,
             yMid: mapService.yMid,
@@ -343,7 +288,7 @@ struct NightOverlayView: View {
         .fill(Color(red: 11/255, green: 31/255, blue: 70/255, opacity: 0.65), style: FillStyle(eoFill: true))
         .scaleEffect(scale, anchor: .topLeading)
         .offset(offset)
-        .allowsHitTesting(false) // 不拦截交互事件
+        .allowsHitTesting(false)
     }
 }
 

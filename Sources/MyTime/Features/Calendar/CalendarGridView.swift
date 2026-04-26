@@ -67,43 +67,49 @@ struct CompactDayCell: View {
     let isToday: Bool
     let currentMonth: Date
     let onTap: () -> Void
+    private let cellData: CellData
     
-    private var lunarInfo: LunarInfo {
-        LunarCalendarService.shared.getLunarInfo(for: date)
+    init(date: Date, isSelected: Bool, isToday: Bool, currentMonth: Date, onTap: @escaping () -> Void) {
+        self.date = date
+        self.isSelected = isSelected
+        self.isToday = isToday
+        self.currentMonth = currentMonth
+        self.onTap = onTap
+        self.cellData = CellData(date: date)
     }
     
-    private var holidayType: HolidayType? {
-        HolidayService.shared.getHolidayType(for: date)
-    }
-    
-    private var holidayName: String? {
-        HolidayService.shared.getHolidayName(for: date)
-    }
-    
-    private var displayText: String {
-        // 优先显示节假日名称
-        if let name = holidayName {
-            return name
+    struct CellData {
+        let lunarInfo: LunarInfo
+        let holidayType: HolidayType?
+        let holidayName: String?
+        let lunarFestival: String?
+        let solarTerm: String?
+        
+        var displayText: String {
+            if let name = holidayName { return name }
+            if let festival = lunarFestival { return festival }
+            if let term = solarTerm { return term }
+            return lunarInfo.lunarDay
         }
-        // 然后显示农历节日
-        if let festival = LunarCalendarService.shared.getLunarFestival(for: date) {
-            return festival
+        
+        @MainActor
+        init(date: Date) {
+            self.lunarInfo = LunarCalendarService.shared.getLunarInfo(for: date)
+            self.holidayType = HolidayService.shared.getHolidayType(for: date)
+            self.holidayName = HolidayService.shared.getHolidayName(for: date)
+            self.lunarFestival = LunarCalendarService.shared.getLunarFestival(for: date)
+            self.solarTerm = LunarCalendarService.shared.getSolarTerm(for: date)
         }
-        // 然后显示节气
-        if let solarTerm = LunarCalendarService.shared.getSolarTerm(for: date) {
-            return solarTerm
-        }
-        return lunarInfo.lunarDay
     }
     
     // 是否是节假日（需要红色背景）
     private var isHoliday: Bool {
-        holidayType == .holiday
+        cellData.holidayType == .holiday
     }
     
     // 是否是调休上班日
     private var isWorkday: Bool {
-        holidayType == .workday
+        cellData.holidayType == .workday
     }
     
     var body: some View {
@@ -129,7 +135,7 @@ struct CompactDayCell: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 
                 // 农历/节日/节气
-                Text(displayText)
+                Text(cellData.displayText)
                     .font(.system(size: 10))
                     .foregroundStyle(festivalColor)
                     .lineLimit(1)
@@ -140,13 +146,13 @@ struct CompactDayCell: View {
             .padding(.vertical, 4)
             
             // 节假日/调休标记（右上角）- 休/班徽章
-            if let type = holidayType {
+            if let type = cellData.holidayType {
                 HolidayBadge(type: type)
                     .offset(x: -2, y: 2)
             }
         }
         .frame(maxWidth: .infinity)
-        .help(holidayName != nil ? holidayName! : "") // hover显示完整节假日名称
+        .help(cellData.holidayName != nil ? cellData.holidayName! : "") // hover显示完整节假日名称
         .onTapGesture {
             onTap()
         }
@@ -212,17 +218,17 @@ struct CompactDayCell: View {
         }
         
         // 节假日名称：红色
-        if holidayName != nil {
+        if cellData.holidayName != nil {
             return Color(red: 0.9, green: 0.2, blue: 0.2)
         }
         
         // 农历节日：红色
-        if LunarCalendarService.shared.getLunarFestival(for: date) != nil {
+        if cellData.lunarFestival != nil {
             return Color(red: 0.9, green: 0.2, blue: 0.2)
         }
         
         // 节气：绿色（百度日历风格）
-        if LunarCalendarService.shared.getSolarTerm(for: date) != nil {
+        if cellData.solarTerm != nil {
             return Color(red: 0.2, green: 0.6, blue: 0.3)
         }
         

@@ -5,7 +5,7 @@ import MapKit
 
 struct WorldClockPopupView: View {
     @Binding var isPresented: Bool
-    @StateObject private var viewModel = WorldClockViewModel.shared
+    @ObservedObject private var viewModel = WorldClockViewModel.shared
     @State private var selectedCity: WorldCity?
     @State private var hoveredCity: WorldCity?
     
@@ -19,6 +19,12 @@ struct WorldClockPopupView: View {
                 TopControlBar(isPresented: $isPresented)
             }
         }
+        .onAppear {
+            viewModel.startTimer()
+        }
+        .onDisappear {
+            viewModel.stopTimer()
+        }
     }
 }
 
@@ -30,17 +36,11 @@ struct CurrentTimePanel: View {
     let isHovered: Bool
     
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "HH:mm:ss", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "yyyy-MM-dd", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var utcOffsetString: String {
@@ -156,13 +156,31 @@ class WorldClockViewModel: ObservableObject {
         let cityService = CityDataService.shared
         self.cities = cityService.cities
         self.currentCity = cityService.getCurrentCity()
-        
-        // 启动定时器 - 每秒更新
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+    }
+    
+    func startTimer() {
+        guard timer == nil else { return }
+        currentTime = Date()
+        // 计算到下一个整分钟的延迟
+        let seconds = Calendar.current.component(.second, from: Date())
+        let delay = max(1, TimeInterval(60 - seconds))
+        // 先等到整分钟，再每60秒更新
+        timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 self?.currentTime = Date()
+                self?.timer?.invalidate()
+                self?.timer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.currentTime = Date()
+                    }
+                }
             }
         }
+    }
+    
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
     }
     
     deinit {

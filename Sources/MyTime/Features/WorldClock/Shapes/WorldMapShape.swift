@@ -47,72 +47,21 @@ struct CountryShape: Shape {
 
 // MARK: - World Map View
 
-/// 世界地图视图 - 渲染所有国家并支持hover交互
+/// 世界地图视图 - 单个Shape渲染所有国家（纯展示，不处理交互）
 struct WorldMapView: View {
     let mapService: WorldMapDataService
-    let hoveredCountryId: String?
-    let selectedCountryId: String?
     let scale: CGFloat
     let offset: CGSize
-    let onCountryHover: (String?, CGPoint) -> Void
-    let onCountryTap: (String) -> Void
     
     var body: some View {
-        ZStack {
-            // 渲染所有国家
-            ForEach(mapService.countries) { country in
-                CountryShape(country: country, scale: scale, offset: offset)
-                    .fill(fillColor(for: country.id))
-                    .overlay(
-                        CountryShape(country: country, scale: scale, offset: offset)
-                            .stroke(strokeColor(for: country.id), lineWidth: strokeWidth(for: country.id))
-                    )
-                    .onHover { isHovered in
-                        if isHovered {
-                            // 计算hover位置（使用国家中心点）
-                            let center = centerPoint(for: country)
-                            onCountryHover(country.id, center)
-                        } else {
-                            onCountryHover(nil, .zero)
-                        }
-                    }
-                    .onTapGesture {
-                        onCountryTap(country.id)
-                    }
-            }
-        }
-        .clipped() // 裁剪超出视图的部分
-    }
-    
-    // MARK: - Styling Helpers
-    
-    private func fillColor(for countryId: String) -> Color {
-        if countryId == selectedCountryId {
-            return Color(red: 0.85, green: 0.55, blue: 0.35) // 橙色选中
-        } else if countryId == hoveredCountryId {
-            return Color(red: 0.75, green: 0.83, blue: 0.92) // 浅蓝高亮（更亮的灰色调）
-        } else {
-            return Color(red: 0.56, green: 0.77, blue: 0.97) // 默认浅蓝
-        }
-    }
-    
-    private func strokeColor(for countryId: String) -> Color {
-        // 统一使用浅色边界，参考SVGMap-master: stroke: white
-        return Color(red: 0.66, green: 0.82, blue: 0.98)
-    }
-    
-    private func strokeWidth(for countryId: String) -> CGFloat {
-        // 统一使用细边界，参考SVGMap-master
-        return 0.5
-    }
-    
-    private func centerPoint(for country: CountryPathData) -> CGPoint {
-        let bbox = country.boundingBox
-        let center = CGPoint(
-            x: bbox.midX * scale + offset.width,
-            y: bbox.midY * scale + offset.height
-        )
-        return center
+        // 底图：单个Shape渲染所有国家（一个 Path）
+        WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
+            .fill(Color(red: 0.56, green: 0.77, blue: 0.97))
+            .overlay(
+                WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
+                    .stroke(Color(red: 0.66, green: 0.82, blue: 0.98), lineWidth: 0.5)
+            )
+        .clipped()
     }
 }
 

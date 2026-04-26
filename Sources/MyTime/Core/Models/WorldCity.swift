@@ -20,6 +20,23 @@ struct WorldCity: Identifiable, Equatable, Codable {
         TimeZone(identifier: timezoneIdentifier) ?? TimeZone.current
     }
     
+    private enum CodingKeys: String, CodingKey {
+        case name, localizedName, country, latitude, longitude, isMajor
+        case timezoneIdentifier = "timezone"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.localizedName = try container.decode(String.self, forKey: .localizedName)
+        self.country = try container.decode(String.self, forKey: .country)
+        self.latitude = try container.decode(Double.self, forKey: .latitude)
+        self.longitude = try container.decode(Double.self, forKey: .longitude)
+        self.timezoneIdentifier = try container.decode(String.self, forKey: .timezoneIdentifier)
+        self.isMajor = try container.decodeIfPresent(Bool.self, forKey: .isMajor) ?? false
+    }
+    
     /// 从 JSON 字典创建
     init?(from dict: [String: Any]) {
         guard let name = dict["name"] as? String,

@@ -67,17 +67,13 @@ struct TimezoneRow: View {
     let isMultiTimezone: Bool
     
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: city.timezone) ?? .current
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: currentTime)
+        let tz = TimeZone(identifier: city.timezone) ?? .current
+        return DateFormatterCache.formatter(format: "HH:mm", timeZone: tz).string(from: currentTime)
     }
     
     private var fullTimeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: city.timezone) ?? .current
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: currentTime)
+        let tz = TimeZone(identifier: city.timezone) ?? .current
+        return DateFormatterCache.formatter(format: "HH:mm:ss", timeZone: tz).string(from: currentTime)
     }
     
     private var utcOffsetString: String {
@@ -206,32 +202,19 @@ struct CurrentTimePanelView: View {
     let isHovered: Bool
     
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "HH:mm", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var ampmString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "a"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "a", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "yyyy年M月d日"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "yyyy年M月d日", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var weekdayString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.locale = Locale(identifier: "zh_Hans")
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: currentTime)
+        DateFormatterCache.formatter(format: "EEEE", timeZone: city.timeZone, locale: Locale(identifier: "zh_Hans")).string(from: currentTime)
     }
     
     private var utcOffsetString: String {

@@ -7,18 +7,51 @@ import LunarSwift
 class LunarCalendarService {
     static let shared = LunarCalendarService()
     
+    // 缓存（限制400条，约覆盖一年+）
+    private var lunarCache: [String: LunarInfo] = [:]
+    private var almanacCache: [String: AlmanacData] = [:]
+    private var festivalCache: [String: String?] = [:]
+    private var solarTermCache: [String: String?] = [:]
+    private let maxCacheSize = 200
+    
     private init() {}
+    
+    private func cacheKey(year: Int, month: Int, day: Int) -> String {
+        "\(year)-\(month)-\(day)"
+    }
+    
+    private func dateComponents(from date: Date) -> (year: Int, month: Int, day: Int)? {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        guard let year = components.year, let month = components.month, let day = components.day else {
+            return nil
+        }
+        return (year, month, day)
+    }
+    
+    private func trimCacheIfNeeded() {
+        if lunarCache.count > maxCacheSize { lunarCache.removeAll() }
+        if almanacCache.count > maxCacheSize { almanacCache.removeAll() }
+        if festivalCache.count > maxCacheSize { festivalCache.removeAll() }
+        if solarTermCache.count > maxCacheSize { solarTermCache.removeAll() }
+    }
+    
+    func clearCache() {
+        lunarCache.removeAll()
+        almanacCache.removeAll()
+        festivalCache.removeAll()
+        solarTermCache.removeAll()
+    }
     
     /// 获取指定日期的农历信息
     func getLunarInfo(for date: Date) -> LunarInfo {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day else {
+        guard let (year, month, day) = dateComponents(from: date) else {
             return LunarInfo.empty
         }
+        
+        let key = cacheKey(year: year, month: month, day: day)
+        if let cached = lunarCache[key] { return cached }
+        trimCacheIfNeeded()
         
         let solar = Solar(year: year, month: month, day: day)
         let lunar = solar.lunar
@@ -28,7 +61,7 @@ class LunarCalendarService {
         let leapMonth = lunarYear.leapMonth
         let isLeap = leapMonth > 0 && abs(lunar.month) == leapMonth
         
-        return LunarInfo(
+        let result = LunarInfo(
             lunarDay: lunar.dayInChinese,
             lunarMonth: lunar.monthInChinese,
             lunarYear: lunar.yearInChinese,
@@ -38,47 +71,44 @@ class LunarCalendarService {
             zodiac: lunar.yearShengXiao,
             isLeapMonth: isLeap
         )
+        lunarCache[key] = result
+        return result
     }
     
     /// 获取指定日期的黄历信息
     func getAlmanacInfo(for date: Date) -> AlmanacData {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day else {
+        guard let (year, month, day) = dateComponents(from: date) else {
             return AlmanacData.empty
         }
+        
+        let key = cacheKey(year: year, month: month, day: day)
+        if let cached = almanacCache[key] { return cached }
         
         let solar = Solar(year: year, month: month, day: day)
         let lunar = solar.lunar
         let eightChar = lunar.eightChar
         
-        return AlmanacData(
+        let result = AlmanacData(
             yi: lunar.dayYi,
             ji: lunar.dayJi,
             wuXing: eightChar.dayWuXing,
             chong: lunar.dayChong,
             sha: lunar.daySha,
-            zhiShen: "",  // lunar-swift 中没有直接的 dayZhiShen
+            zhiShen: "",
             jianChu: "",
             jiShen: lunar.dayJiShen,
             xiongShen: lunar.dayXiongSha,
-            taiShen: "",  // lunar-swift 中没有直接的 taiShen
+            taiShen: "",
             pengZu: "\(lunar.pengZuGan) \(lunar.pengZuZhi)",
             xingXiu: lunar.xiu
         )
+        almanacCache[key] = result
+        return result
     }
     
     /// 获取时辰吉凶
     func getShiChenInfo(for date: Date) -> [ShiChenData] {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day else {
+        guard let (year, month, day) = dateComponents(from: date) else {
             return []
         }
         
@@ -100,46 +130,49 @@ class LunarCalendarService {
     
     /// 判断是否为节气
     func getSolarTerm(for date: Date) -> String? {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day else {
+        guard let (year, month, day) = dateComponents(from: date) else {
             return nil
         }
+        
+        let key = cacheKey(year: year, month: month, day: day)
+        if let cached = solarTermCache[key] { return cached }
         
         let solar = Solar(year: year, month: month, day: day)
         let lunar = solar.lunar
         
         let jieQi = lunar.jieQi
-        return jieQi.isEmpty ? nil : jieQi
+        let result = jieQi.isEmpty ? nil : jieQi
+        solarTermCache[key] = result
+        return result
     }
     
     /// 获取农历节日
     func getLunarFestival(for date: Date) -> String? {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day else {
+        guard let (year, month, day) = dateComponents(from: date) else {
             return nil
         }
+        
+        let key = cacheKey(year: year, month: month, day: day)
+        if let cached = festivalCache[key] { return cached }
         
         let solar = Solar(year: year, month: month, day: day)
         let lunar = solar.lunar
         
         // 优先返回农历节日 (festivals 是数组)
         if !lunar.festivals.isEmpty {
-            return lunar.festivals.first
+            let result = lunar.festivals.first
+            festivalCache[key] = result
+            return result
         }
         
         // 然后检查公历节日
         if !solar.festivals.isEmpty {
-            return solar.festivals.first
+            let result = solar.festivals.first
+            festivalCache[key] = result
+            return result
         }
         
+        festivalCache[key] = nil
         return nil
     }
 }

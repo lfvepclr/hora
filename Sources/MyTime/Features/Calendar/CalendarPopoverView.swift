@@ -70,6 +70,10 @@ struct CalendarPopoverView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .resetPopoverContent)) { _ in
+            showWorldClock = false
+            showAlmanacDetail = false
+        }
     }
     
     // MARK: - 左侧日历区域
@@ -138,9 +142,7 @@ struct CalendarPopoverView: View {
     }
     
     private var monthYearString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy年M月"
-        return formatter.string(from: viewModel.currentDate)
+        DateFormatterCache.formatter(format: "yyyy年M月").string(from: viewModel.currentDate)
     }
     
     // MARK: - Weekday Header
@@ -210,9 +212,6 @@ struct DateDetailPanel: View {
     let onTap: () -> Void
     let onWorldClockTap: () -> Void
     
-    @State private var currentTime = Date()
-    @State private var timer: Timer?
-    
     init(date: Date, onTap: @escaping () -> Void, onWorldClockTap: @escaping () -> Void) {
         self.date = date
         self.onTap = onTap
@@ -239,36 +238,6 @@ struct DateDetailPanel: View {
     private var timeZoneName: String {
         let tz = TimeZone.current
         return CityDataService.shared.getLocalizedName(forTimezone: tz.identifier)
-    }
-    
-    // UTC偏移字符串
-    private var utcOffsetString: String {
-        let tz = TimeZone.current
-        let seconds = tz.secondsFromGMT(for: currentTime)
-        let hours = seconds / 3600
-        let minutes = abs(seconds % 3600) / 60
-        
-        if minutes == 0 {
-            return "UTC\(hours >= 0 ? "+" : "")\(hours)"
-        }
-        return "UTC\(hours >= 0 ? "+" : "")\(hours):\(String(format: "%02d", minutes))"
-    }
-    
-    // 时间字符串
-    private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: currentTime)
-    }
-    
-    // 是否夏令时
-    private var isDaylightSavingTime: Bool {
-        TimeZone.current.isDaylightSavingTime(for: currentTime)
-    }
-    
-    // 夏令时偏移
-    private var dstOffset: TimeInterval {
-        TimeZone.current.daylightSavingTimeOffset(for: currentTime)
     }
     
     var body: some View {
@@ -329,23 +298,25 @@ struct DateDetailPanel: View {
                 .font(.system(size: 12))
                 .opacity(0.9)
             
-            // 时间显示（点击可切换到世界时钟）
+            // 时间显示（点击可切换到世界时钟）- 使用 TimelineView 替代手动 Timer
             Button(action: {
                 onWorldClockTap()
             }) {
-                VStack(spacing: 4) {
-                    // 大号时间数字
-                    Text(timeString)
-                        .font(.system(size: 30, weight: .light))
-                    
-                    // 地点图标 + 时区名称
-                    HStack(spacing: 4) {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 10))
-                        Text(timeZoneName)
-                            .font(.system(size: 10))
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    VStack(spacing: 4) {
+                        // 大号时间数字
+                        Text(DateFormatterCache.formatter(format: "HH:mm").string(from: context.date))
+                            .font(.system(size: 30, weight: .light))
+                        
+                        // 地点图标 + 时区名称
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 10))
+                            Text(timeZoneName)
+                                .font(.system(size: 10))
+                        }
+                        .opacity(0.85)
                     }
-                    .opacity(0.85)
                 }
                 .frame(width: 90, height: 75)
                 .background(Color.white.opacity(0.2))
@@ -401,29 +372,6 @@ struct DateDetailPanel: View {
                     .padding(.top, 4)
             }
         }
-        .onAppear {
-            // 启动定时器更新时间
-            startTimer()
-        }
-        .onDisappear {
-            // 停止定时器
-            stopTimer()
-        }
-    }
-    
-    // 启动定时器
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            Task { @MainActor in
-                currentTime = Date()
-            }
-        }
-    }
-    
-    // 停止定时器
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
     }
     
     // MARK: - 宜忌区域
@@ -470,9 +418,7 @@ struct DateDetailPanel: View {
     }
     
     private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        DateFormatterCache.formatter(format: "yyyy-MM-dd").string(from: date)
     }
 }
 

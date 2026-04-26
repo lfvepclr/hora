@@ -10,8 +10,6 @@ struct NativeWorldClockView: View {
     private let mapService: WorldMapDataService = WorldMapDataService.shared
     
     // 交互状态
-    @State private var hoveredCountryId: String?
-    @State private var hoveredCountryPosition: CGPoint = .zero
     @State private var hoveredCityId: UUID?
     @State private var viewSize: CGSize = .zero
     
@@ -61,23 +59,13 @@ struct NativeWorldClockView: View {
                 )
                 .ignoresSafeArea()
                 
-                // 地图层
+                // 地图层（不拦截事件，由城市标记层处理交互）
                 WorldMapView(
                     mapService: mapService,
-                    hoveredCountryId: hoveredCountryId,
-                    selectedCountryId: nil,
                     scale: scale,
-                    offset: offset,
-                    onCountryHover: { countryId, position in
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            hoveredCountryId = countryId
-                            hoveredCountryPosition = position
-                        }
-                    },
-                    onCountryTap: { countryId in
-                        // 可以添加国家点击逻辑
-                    }
+                    offset: offset
                 )
+                .allowsHitTesting(false)
                 
                 // 昼夜分界线层（允许事件穿透）
                 NightOverlayView(
@@ -122,24 +110,6 @@ struct NativeWorldClockView: View {
                 )
                 .zIndex(10) // 确保城市标记层在地图层之上接收hover事件
                 
-                // 国家hover弹窗（当城市hover生效时或无时区信息时不显示）
-                if let countryId = hoveredCountryId, hoveredCityId == nil {
-                    if let country = mapService.countries.first(where: { $0.id == countryId }) {
-                        let tzInfo = mapService.getTimezoneInfo(for: countryId)
-                        // 只有存在时区信息时才显示弹窗
-                        if tzInfo != nil {
-                            CountryTimezonePopup(
-                                countryName: country.name,
-                                timezoneInfo: tzInfo,
-                                currentTime: viewModel.currentTime,
-                                position: calculatePopupPosition(for: hoveredCountryPosition)
-                            )
-                            .transition(.opacity)
-                            .zIndex(100)
-                        }
-                    }
-                }
-                
                 // 左下角时间面板（允许事件穿透到下层地图）
                 let displayCity = hoveredCityId.flatMap { id in
                     viewModel.cities.first(where: { $0.id == id })
@@ -167,27 +137,6 @@ struct NativeWorldClockView: View {
                 viewSize = newSize
             }
         }
-    }
-    
-    // MARK: - Helpers
-    
-    private func calculatePopupPosition(for position: CGPoint) -> CGPoint {
-        // 确保弹窗在视图内
-        var x = position.x + 15
-        var y = position.y - 50
-        
-        // 边界检查
-        if x + 200 > viewSize.width {
-            x = position.x - 215
-        }
-        if y < 10 {
-            y = 10
-        }
-        if y + 150 > viewSize.height {
-            y = viewSize.height - 160
-        }
-        
-        return CGPoint(x: x, y: y)
     }
 }
 

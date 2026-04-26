@@ -11,8 +11,8 @@ class WorldMapDataService {
     
     // MARK: - Properties
     
-    /// 地图数据
-    private(set) var mapData: WorldMapData?
+    /// 地图数据（加载后释放）
+    private var mapData: WorldMapData?
     
     /// 坐标转换参数
     private(set) var transform: HCTransform?
@@ -32,58 +32,102 @@ class WorldMapDataService {
     /// 地球半径（米）- Miller投影使用等面积半径
     private let R_A: Double = 6371007.2
     
+    /// 数据是否已加载
+    private var isLoaded = false
+    
+    /// 是否正在加载（防止重复加载）
+    private var isLoading = false
+    
     // MARK: - Initialization
     
     private init() {
-        loadMapData()
-        loadCountryTimezones()
+        // 延迟加载：不在init中加载数据
+    }
+    
+    // MARK: - Lifecycle
+    
+    /// 确保数据已加载（世界时钟打开时调用）
+    func ensureLoaded() async {
+        guard !isLoaded && !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        
+        await loadMapData()
+        await loadCountryTimezones()
+        isLoaded = true
+    }
+    
+    /// 释放地图数据（世界时钟关闭时调用）
+    func unload() {
+        countries = []
+        countryTimezones = [:]
+        mapBounds = .null
+        transform = nil
+        yMid = 0
+        isLoaded = false
     }
     
     // MARK: - Data Loading
     
-    private func loadMapData() {
+    private func loadMapData() async {
         // 从Bundle.module加载world.json
         guard let url = Bundle.module.url(forResource: "world", withExtension: "json") else {
             print("ERROR: world.json not found in bundle")
             return
         }
         
-        do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            mapData = try decoder.decode(WorldMapData.self, from: data)
-            transform = mapData?.defaultTransform
-            
-            // 处理国家数据，转换为Path坐标
-            processCountries()
-            
-            print("Loaded \(countries.count) countries from world.json")
-        } catch {
-            print("ERROR loading world.json: \(error)")
-        }
+        let loadedMapData = await Task.detached(priority: .userInitiated) { () -> WorldMapData? in
+            do {
+                let data = try Data(contentsOf: url)
+                let decoder = JSONDecoder()
+                return try decoder.decode(WorldMapData.self, from: data)
+            } catch {
+                print("ERROR loading world.json: \(error)")
+                return nil
+            }
+        }.value
+        
+        guard let mapData = loadedMapData else { return }
+        self.mapData = mapData
+        self.transform = mapData.defaultTransform
+        
+        // 处理国家数据，转换为Path坐标
+        processCountries()
+        
+        // 释放原始解码数据，只保留处理后的countries
+        self.mapData = nil
+        
+        print("Loaded \(countries.count) countries from world.json")
     }
     
-    private func loadCountryTimezones() {
+    private func loadCountryTimezones() async {
         guard let url = Bundle.module.url(forResource: "countryTimezones", withExtension: "json") else {
             print("WARN: countryTimezones.json not found, using default mapping")
             generateDefaultTimezoneMapping()
             return
         }
         
-        do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            let timezoneInfos = try decoder.decode([CountryTimezoneInfo].self, from: data)
-            
-            for info in timezoneInfos {
-                countryTimezones[info.countryCode] = info
+        let timezoneInfos = await Task.detached(priority: .userInitiated) { () -> [CountryTimezoneInfo]? in
+            do {
+                let data = try Data(contentsOf: url)
+                let decoder = JSONDecoder()
+                return try decoder.decode([CountryTimezoneInfo].self, from: data)
+            } catch {
+                print("ERROR loading countryTimezones.json: \(error)")
+                return nil
             }
-            
-            print("Loaded timezone info for \(countryTimezones.count) countries")
-        } catch {
-            print("ERROR loading countryTimezones.json: \(error)")
+        }.value
+        
+        guard let infos = timezoneInfos else {
             generateDefaultTimezoneMapping()
+            return
         }
+        
+        for info in infos {
+            countryTimezones[info.countryCode] = info
+        }
+        
+        print("Loaded timezone info for \(countryTimezones.count) countries")
     }
     
     /// 生成默认的时区映射（基于cities24tz.json）
@@ -130,7 +174,7 @@ class WorldMapDataService {
         countries = []
         var allBounds: CGRect = .null
         
-        // 第一遍：找到Y的范围
+        // 第一遍：找到Y的范围（内联计算，无额外函数调用）
         var minY: CGFloat = .infinity
         var maxY: CGFloat = -.infinity
         for feature in features {
@@ -149,53 +193,44 @@ class WorldMapDataService {
         // 计算Y翻转的中点
         yMid = (minY + maxY) / 2
         
-        // 第二遍：处理并翻转Y坐标
+        // 第二遍：处理并翻转Y坐标（内联，减少函数调用开销）
         for feature in features {
-            let pathData = processCountryFeature(feature, yMid: yMid)
+            var pathPoints: [[CGPoint]] = []
+            var allPoints: [CGPoint] = []
+            
+            let polygons = feature.geometry.coordinates.allPolygons()
+            for polygon in polygons {
+                var points: [CGPoint] = []
+                for coord in polygon {
+                    if coord.count >= 2 {
+                        let x = CGFloat(coord[0])
+                        let y = CGFloat(coord[1])
+                        let flippedY = 2 * yMid - y
+                        let point = CGPoint(x: x, y: flippedY)
+                        points.append(point)
+                        allPoints.append(point)
+                    }
+                }
+                if !points.isEmpty {
+                    pathPoints.append(points)
+                }
+            }
+            
+            let boundingBox = allPoints.reduce(CGRect.null) { rect, point in
+                rect.union(CGRect(origin: point, size: .zero))
+            }
+            
+            let pathData = CountryPathData(
+                id: feature.id,
+                name: feature.name,
+                pathPoints: pathPoints,
+                boundingBox: boundingBox
+            )
             countries.append(pathData)
             allBounds = allBounds.union(pathData.boundingBox)
         }
         
         mapBounds = allBounds
-    }
-    
-    private func processCountryFeature(_ feature: CountryFeature, yMid: CGFloat) -> CountryPathData {
-        var pathPoints: [[CGPoint]] = []
-        var allPoints: [CGPoint] = []
-        
-        // 获取所有多边形
-        let polygons = feature.geometry.coordinates.allPolygons()
-        
-        for polygon in polygons {
-            var points: [CGPoint] = []
-            for coord in polygon {
-                if coord.count >= 2 {
-                    // world.json中的坐标已经是Highcharts JSON坐标
-                    let x = CGFloat(coord[0])
-                    let y = CGFloat(coord[1])
-                    // 翻转Y坐标：y' = 2 * yMid - y
-                    let flippedY = 2 * yMid - y
-                    let point = CGPoint(x: x, y: flippedY)
-                    points.append(point)
-                    allPoints.append(point)
-                }
-            }
-            if !points.isEmpty {
-                pathPoints.append(points)
-            }
-        }
-        
-        // 计算边界框
-        let boundingBox = allPoints.reduce(CGRect.null) { rect, point in
-            rect.union(CGRect(origin: point, size: .zero))
-        }
-        
-        return CountryPathData(
-            id: feature.id,
-            name: feature.name,
-            pathPoints: pathPoints,
-            boundingBox: boundingBox
-        )
     }
     
     // MARK: - Coordinate Conversion

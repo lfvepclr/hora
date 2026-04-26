@@ -27,9 +27,7 @@ struct CityMarkerView: View {
     }
     
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "HH:mm"
+        let formatter = DateFormatterCache.formatter(format: "HH:mm", timeZone: city.timeZone)
         return formatter.string(from: currentTime)
     }
     
@@ -40,7 +38,7 @@ struct CityMarkerView: View {
                 // Hover检测区域（透明的大圆形）
                 Circle()
                     .fill(Color.white.opacity(0.001))
-                    .frame(width: 50, height: 50)
+                    .frame(width: 14, height: 14)
                     .contentShape(Circle())
                     .onHover { hovering in
                         onHover(hovering)
@@ -80,8 +78,8 @@ struct CityMarkerView: View {
                 .animation(.easeInOut(duration: 0.15), value: isHovered)
                 .allowsHitTesting(false) // 让内容层不拦截事件
             }
-            .frame(width: 50, height: 50)
             .position(position)
+            .zIndex(isSelected ? 2 : (isHovered ? 1 : 0))
         }
     }
     
@@ -196,9 +194,7 @@ struct MajorCityMarker: View {
     }
     
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.timeZone = city.timeZone
-        formatter.dateFormat = "HH:mm"
+        let formatter = DateFormatterCache.formatter(format: "HH:mm", timeZone: city.timeZone)
         return formatter.string(from: currentTime)
     }
     
