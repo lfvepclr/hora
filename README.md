@@ -52,6 +52,15 @@
 
 ![黄历显示](/Users/spencer/workspace/idea/demo/mytime/assets/软件日历黄历.png)
 
+### 定时休息（RestNow）
+- **工作/休息循环**：可自定义工作和休息时长（工作 20/30/45/60 分钟，休息 5/10/20 分钟）
+- **全屏休息提醒**：休息时间到时，在所有显示器上显示全屏遮罩
+- **菜单栏倒计时**：菜单栏实时显示当前阶段倒计时
+- **灵活控制**：支持暂停、重置、跳过休息、提前开始休息
+- **锁屏感知**：自动检测锁屏/解锁状态，锁屏期间暂停计时
+- **唤醒恢复**：系统从睡眠恢复后自动重置或继续计时
+- **首次引导**：首次启动提供引导设置向导
+
 ### 国际化支持
 - 支持多种语言：简体中文、English、日语、韩语
 - 所有 UI 字符串均已本地化
@@ -64,6 +73,8 @@
 - **依赖库**：
   - [SwiftDate](https://github.com/malcommac/SwiftDate)：日期时间工具
   - [lunar-swift](https://github.com/6tail/lunar-swift)：农历计算库
+- **第三方项目**：
+  - [Rest-Now](https://github.com/krjadhav/Rest-Now)：定时休息功能基于此项目改编
 
 ## 项目结构
 
@@ -88,6 +99,12 @@ Sources/MyTime/
 │   │   ├── CalendarContainerView.swift # 主日历容器
 │   │   ├── CalendarGridView.swift     # 日历网格
 │   │   └── CalendarPopoverView.swift  # 弹出窗口版本
+│   ├── RestNow/
+│   │   ├── BreakOverlayView.swift       # 休息全屏遮罩视图
+│   │   ├── BreakOverlayWindowManager.swift # 多屏幕遮罩窗口管理
+│   │   ├── OnboardingView.swift          # 首次引导设置
+│   │   ├── RestNowColorSettings.swift     # 圆圈颜色配置
+│   │   └── RestNowSession.swift           # 定时休息核心逻辑
 │   └── WorldClock/
 │       ├── WorldClockMapView.swift    # 地图组件
 │       └── WorldClockPopupView.swift  # 带控制栏的弹出窗口

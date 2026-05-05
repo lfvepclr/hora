@@ -1,7 +1,32 @@
 import Foundation
 
+// MARK: - Version Constants (keep in sync with AppInfo.swift)
+private let appName = "MyTime"
+private let appVersion = "2.0.0"
+private let appBuild = "1"
+private let bundleIdentifier = "com.mytime.app"
+private let minimumSystemVersion = "14.0"
+
 @main
 struct DMGBuilder {
+    
+    // MARK: - Helper: Run shell process
+    
+    @discardableResult
+    static func shell(_ executable: String, arguments: [String], silent: Bool = false) throws -> Int32 {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        if silent {
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+        }
+        try process.run()
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+    
+    // MARK: - Icon Generation
     
     static func createIconSet(from svgPath: String, to iconsetPath: String, resourcesPath: String) throws {
         let fileManager = FileManager.default
@@ -23,14 +48,12 @@ struct DMGBuilder {
             ("512x512@2x", 1024)
         ]
         
-        // 使用 qlmanage 或 textutil 预览并转换 SVG
+        // 使用 qlmanage 预览并转换 SVG
         let qlProcess = Process()
         qlProcess.executableURL = URL(fileURLWithPath: "/usr/bin/qlmanage")
-        qlProcess.arguments = [
-            "-t", "-s", "1024",
-            "-o", iconsetPath,
-            svgPath
-        ]
+        qlProcess.arguments = ["-t", "-s", "1024", "-o", iconsetPath, svgPath]
+        qlProcess.standardOutput = FileHandle.nullDevice
+        qlProcess.standardError = FileHandle.nullDevice
         try qlProcess.run()
         qlProcess.waitUntilExit()
         
@@ -41,16 +64,11 @@ struct DMGBuilder {
             // 使用 sips 生成各种尺寸
             for (iconName, size) in sizes {
                 let outputPath = "\(iconsetPath)/icon_\(iconName).png"
-                
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/sips")
-                process.arguments = [
+                try shell("/usr/bin/sips", arguments: [
                     "-z", String(size), String(size),
                     qlPreviewPath,
                     "--out", outputPath
-                ]
-                try process.run()
-                process.waitUntilExit()
+                ], silent: true)
             }
             
             // 删除临时文件
@@ -60,23 +78,35 @@ struct DMGBuilder {
         }
     }
     
+    // MARK: - Main Entry Point
+    
     static func main() async throws {
         let fileManager = FileManager.default
         let currentPath = fileManager.currentDirectoryPath
         
+        // ============================================================
+        // Step 0: Release Build
+        // ============================================================
+        print("🔨 Building release...")
+        let buildStatus = try shell("/usr/bin/swift", arguments: ["build", "-c", "release"])
+        guard buildStatus == 0 else {
+            print("❌ Release build failed! Aborting.")
+            Foundation.exit(1)
+        }
+        print("✅ Build succeeded.")
+        
         let buildPath = "\(currentPath)/.build/release"
-        let appName = "MyTime"
         let appBundlePath = "\(buildPath)/\(appName).app"
         
-        // 1. 创建 .app bundle 结构
+        // ============================================================
+        // Step 1: Create .app bundle
+        // ============================================================
         print("📦 Creating app bundle...")
         
-        // 如果已存在则删除
         if fileManager.fileExists(atPath: appBundlePath) {
             try fileManager.removeItem(atPath: appBundlePath)
         }
         
-        // 创建目录结构
         let contentsPath = "\(appBundlePath)/Contents"
         let macOSPath = "\(contentsPath)/MacOS"
         let resourcesPath = "\(contentsPath)/Resources"
@@ -95,7 +125,9 @@ struct DMGBuilder {
             try fileManager.copyItem(atPath: bundleSource, toPath: "\(resourcesPath)/\(appName)_MyTime.bundle")
         }
         
-        // 创建应用图标
+        // ============================================================
+        // Step 2: Create app icon (SVG → iconset → icns)
+        // ============================================================
         print("🎨 Creating app icon...")
         let svgPath = "\(currentPath)/icon.svg"
         let iconsetPath = "\(currentPath)/.build/MyTime.iconset"
@@ -105,17 +137,15 @@ struct DMGBuilder {
             try createIconSet(from: svgPath, to: iconsetPath, resourcesPath: resourcesPath)
             
             // 使用 iconutil 转换为 icns
-            let iconutilProcess = Process()
-            iconutilProcess.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-            iconutilProcess.arguments = ["-c", "icns", iconsetPath, "-o", icnsPath]
-            try iconutilProcess.run()
-            iconutilProcess.waitUntilExit()
+            try shell("/usr/bin/iconutil", arguments: ["-c", "icns", iconsetPath, "-o", icnsPath], silent: true)
             
             // 清理 iconset
             try? fileManager.removeItem(atPath: iconsetPath)
         }
         
-        // 创建 Info.plist
+        // ============================================================
+        // Step 3: Create Info.plist
+        // ============================================================
         let iconFileName = fileManager.fileExists(atPath: svgPath) ? "AppIcon" : ""
         let infoPlist = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -129,7 +159,7 @@ struct DMGBuilder {
             <key>CFBundleIconFile</key>
             <string>\(iconFileName)</string>
             <key>CFBundleIdentifier</key>
-            <string>com.mytime.app</string>
+            <string>\(bundleIdentifier)</string>
             <key>CFBundleInfoDictionaryVersion</key>
             <string>6.0</string>
             <key>CFBundleName</key>
@@ -137,11 +167,11 @@ struct DMGBuilder {
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
+            <string>\(appVersion)</string>
             <key>CFBundleVersion</key>
-            <string>1</string>
+            <string>\(appBuild)</string>
             <key>LSMinimumSystemVersion</key>
-            <string>14.0</string>
+            <string>\(minimumSystemVersion)</string>
             <key>NSHighResolutionCapable</key>
             <true/>
             <key>NSPrincipalClass</key>
@@ -153,184 +183,175 @@ struct DMGBuilder {
         let infoPlistPath = "\(contentsPath)/Info.plist"
         try infoPlist.write(toFile: infoPlistPath, atomically: true, encoding: .utf8)
         
+        // ============================================================
+        // Step 4: Ad-Hoc sign .app
+        // ============================================================
+        print("🔏 Signing app bundle...")
+        try shell("/usr/bin/codesign", arguments: [
+            "-s", "-", "--deep", "--force", "--options", "runtime", appBundlePath
+        ])
+        
+        // ============================================================
+        // Step 5: Prepare DMG staging directory
+        // ============================================================
+        print("💿 Creating DMG...")
         let distPath = "\(currentPath)/dist"
+        let dmgPath = "\(distPath)/\(appName).dmg"
+        let rwDmgPath = "\(currentPath)/.build/\(appName)-rw.dmg"
+        let stagingDir = "\(currentPath)/.build/dmg-root"
         
         // 确保 dist 目录存在
         if !fileManager.fileExists(atPath: distPath) {
             try fileManager.createDirectory(atPath: distPath, withIntermediateDirectories: true)
         }
         
-        // 2. Ad-Hoc 签名 .app
-        print("🔏 Signing app...")
-        let signProcess = Process()
-        signProcess.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        signProcess.arguments = [
-            "-s", "-",
-            "--deep",
-            "--force",
-            "--options", "runtime",
-            appBundlePath
-        ]
-        try signProcess.run()
-        signProcess.waitUntilExit()
-        
-        // 3. 创建临时目录用于 DMG
-        print("💿 Creating DMG...")
-        let tempDmgDir = "\(currentPath)/.build/dmg_temp"
-        if fileManager.fileExists(atPath: tempDmgDir) {
-            try fileManager.removeItem(atPath: tempDmgDir)
+        // 清理旧文件
+        if fileManager.fileExists(atPath: stagingDir) {
+            try fileManager.removeItem(atPath: stagingDir)
         }
-        try fileManager.createDirectory(atPath: tempDmgDir, withIntermediateDirectories: true)
-        
-        // 复制 app 到临时目录
-        try fileManager.copyItem(atPath: appBundlePath, toPath: "\(tempDmgDir)/\(appName).app")
-        
-        // 创建 Applications 符号链接
-        try fileManager.createSymbolicLink(
-            atPath: "\(tempDmgDir)/Applications",
-            withDestinationPath: "/Applications"
-        )
-        
-        // 4. 使用 hdiutil 创建 DMG (使用 detach 方法)
-        let dmgPath = "\(distPath)/\(appName).dmg"
-        let tempDmgPath = "\(distPath)/\(appName)-temp.dmg"
-        
-        // 删除已存在的 DMG
+        if fileManager.fileExists(atPath: rwDmgPath) {
+            try fileManager.removeItem(atPath: rwDmgPath)
+        }
         if fileManager.fileExists(atPath: dmgPath) {
             try fileManager.removeItem(atPath: dmgPath)
         }
-        if fileManager.fileExists(atPath: tempDmgPath) {
-            try fileManager.removeItem(atPath: tempDmgPath)
-        }
         
-        // 步骤 1: 创建一个空的可读写 DMG (使用 -megabytes 避免大小问题)
-        let createProcess = Process()
-        createProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        createProcess.arguments = [
+        // 创建临时目录，复制 .app + 创建 Applications 符号链接
+        try fileManager.createDirectory(atPath: stagingDir, withIntermediateDirectories: true)
+        try fileManager.copyItem(atPath: appBundlePath, toPath: "\(stagingDir)/\(appName).app")
+        try fileManager.createSymbolicLink(atPath: "\(stagingDir)/Applications", withDestinationPath: "/Applications")
+        
+        // ============================================================
+        // Step 6: Create read-write DMG (UDRW, HFS+)
+        // ============================================================
+        print("📀 Creating writable DMG image...")
+        let createStatus = try shell("/usr/bin/hdiutil", arguments: [
             "create",
-            "-megabytes", "100",
-            "-fs", "HFS+",
             "-volname", appName,
-            "-attach",
-            tempDmgPath
-        ]
-        let createOutputPipe = Pipe()
-        createProcess.standardOutput = createOutputPipe
-        createProcess.standardError = createOutputPipe
-        try createProcess.run()
-        createProcess.waitUntilExit()
+            "-srcfolder", stagingDir,
+            "-fs", "HFS+",
+            "-format", "UDRW",
+            "-ov",
+            rwDmgPath
+        ], silent: true)
         
-        // 检查是否成功，如果失败尝试另一种方法
-        if createProcess.terminationStatus != 0 {
-            print("⚠️ hdiutil attach failed, trying alternative method...")
-            
-            // 替代方法: 直接使用 srcfolder
-            let altProcess = Process()
-            altProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-            altProcess.arguments = [
-                "create",
-                "-volname", appName,
-                "-srcfolder", tempDmgDir,
-                "-ov",
-                "-format", "UDZO",
-                "-imagekey", "zlib-level=9",
-                dmgPath
-            ]
-            try altProcess.run()
-            altProcess.waitUntilExit()
-            
-            if altProcess.terminationStatus != 0 {
-                // 最后尝试: 使用 UDRW 格式
-                print("⚠️ Trying UDRW format...")
-                let udzoProcess = Process()
-                udzoProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-                udzoProcess.arguments = [
-                    "create",
-                    "-volname", appName,
-                    "-srcfolder", tempDmgDir,
-                    "-ov",
-                    "-format", "UDRW",
-                    dmgPath
-                ]
-                try udzoProcess.run()
-                udzoProcess.waitUntilExit()
-                
-                guard udzoProcess.terminationStatus == 0 else {
-                    throw NSError(domain: "DMGBuilder", code: 1, userInfo: [NSLocalizedDescriptionKey: "hdiutil failed"])
-                }
-            }
-            
-            // 清理临时目录
-            try? fileManager.removeItem(atPath: tempDmgDir)
-            
-            // 签名 DMG
-            print("🔏 Signing DMG...")
-            let dmgSignProcess = Process()
-            dmgSignProcess.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-            dmgSignProcess.arguments = ["-s", "-", dmgPath]
-            try dmgSignProcess.run()
-            dmgSignProcess.waitUntilExit()
-            
-            print("✅ DMG created at: \(dmgPath)")
-            return
+        guard createStatus == 0 else {
+            print("❌ Failed to create writable DMG!")
+            Foundation.exit(1)
         }
         
-        // 找到挂载点
+        // ============================================================
+        // Step 7: Mount and configure with AppleScript
+        // ============================================================
+        print("🎨 Configuring DMG window layout...")
+        
+        // Mount the DMG
         let mountPoint = "/Volumes/\(appName)"
         
-        // 等待挂载完成
-        try await Task.sleep(for: .seconds(1.0))
+        // Detach if already mounted
+        try? shell("/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"], silent: true)
         
-        // 复制文件到 DMG
-        print("📁 Copying files to DMG...")
-        let cpProcess = Process()
-        cpProcess.executableURL = URL(fileURLWithPath: "/bin/cp")
-        cpProcess.arguments = ["-R", "\(tempDmgDir)/\(appName).app", "\(mountPoint)/"]
-        try cpProcess.run()
-        cpProcess.waitUntilExit()
+        let attachStatus = try shell("/usr/bin/hdiutil", arguments: [
+            "attach", rwDmgPath,
+            "-mountpoint", mountPoint,
+            "-nobrowse", "-noverify"
+        ], silent: true)
         
-        // 创建 Applications 符号链接
-        let linkProcess = Process()
-        linkProcess.executableURL = URL(fileURLWithPath: "/bin/ln")
-        linkProcess.arguments = ["-s", "/Applications", "\(mountPoint)/Applications"]
-        try linkProcess.run()
-        linkProcess.waitUntilExit()
+        guard attachStatus == 0 else {
+            print("❌ Failed to mount DMG for styling!")
+            Foundation.exit(1)
+        }
         
-        // 卸载 DMG
+        // AppleScript to configure window appearance
+        let appleScript = """
+        tell application "Finder"
+            tell disk "\(appName)"
+                open
+                delay 1
+
+                set theWindow to container window
+                set current view of theWindow to icon view
+                delay 0.5
+
+                set toolbar visible of theWindow to false
+                set statusbar visible of theWindow to false
+
+                set bounds of theWindow to {200, 200, 800, 600}
+
+                set viewOptions to the icon view options of theWindow
+                set arrangement of viewOptions to not arranged
+                set icon size of viewOptions to 128
+                set background color of viewOptions to {65535, 65535, 65535}
+
+                delay 0.5
+
+                set position of item "\(appName).app" of theWindow to {150, 200}
+                set position of item "Applications" of theWindow to {450, 200}
+
+                close
+                open
+                delay 0.5
+                update without registering applications
+            end tell
+        end tell
+        """
+        
+        // Execute AppleScript (graceful degradation if Finder unavailable)
+        let osascriptProcess = Process()
+        osascriptProcess.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        osascriptProcess.arguments = ["-e", appleScript]
+        osascriptProcess.standardOutput = FileHandle.nullDevice
+        osascriptProcess.standardError = FileHandle.nullDevice
+        try osascriptProcess.run()
+        osascriptProcess.waitUntilExit()
+        
+        if osascriptProcess.terminationStatus != 0 {
+            print("⚠️  AppleScript window styling failed (CI environment?). Continuing without styling...")
+        } else {
+            print("✅ DMG window styled successfully.")
+        }
+        
+        // Wait for Finder to sync
+        try await Task.sleep(for: .seconds(2.0))
+        
+        // ============================================================
+        // Step 8: Detach DMG
+        // ============================================================
         print("📤 Detaching DMG...")
-        let detachProcess = Process()
-        detachProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        detachProcess.arguments = ["detach", mountPoint]
-        try detachProcess.run()
-        detachProcess.waitUntilExit()
+        try shell("/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"], silent: true)
         
-        // 转换为压缩格式
-        print("📦 Converting to compressed format...")
-        let convertProcess = Process()
-        convertProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        convertProcess.arguments = [
-            "convert", tempDmgPath,
+        // ============================================================
+        // Step 9: Convert to compressed UDZO format (zlib-level=9)
+        // ============================================================
+        print("📦 Converting to compressed format (UDZO)...")
+        let convertStatus = try shell("/usr/bin/hdiutil", arguments: [
+            "convert", rwDmgPath,
             "-format", "UDZO",
             "-imagekey", "zlib-level=9",
+            "-ov",
             "-o", dmgPath
-        ]
-        try convertProcess.run()
-        convertProcess.waitUntilExit()
+        ], silent: true)
         
-        // 删除临时 DMG
-        try? fileManager.removeItem(atPath: tempDmgPath)
+        guard convertStatus == 0 else {
+            print("❌ Failed to convert DMG to compressed format!")
+            Foundation.exit(1)
+        }
         
-        // 5. Ad-Hoc 签名 DMG
+        // ============================================================
+        // Step 10: Ad-Hoc sign final DMG
+        // ============================================================
         print("🔏 Signing DMG...")
-        let dmgSignProcess = Process()
-        dmgSignProcess.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        dmgSignProcess.arguments = ["-s", "-", dmgPath]
-        try dmgSignProcess.run()
-        dmgSignProcess.waitUntilExit()
+        try shell("/usr/bin/codesign", arguments: ["-s", "-", dmgPath])
         
-        // 清理临时目录
-        try fileManager.removeItem(atPath: tempDmgDir)
+        // ============================================================
+        // Step 11: Cleanup temporary files
+        // ============================================================
+        print("🧹 Cleaning up...")
+        try? fileManager.removeItem(atPath: rwDmgPath)
+        try? fileManager.removeItem(atPath: stagingDir)
         
-        print("✅ DMG created at: \(dmgPath)")
+        print("")
+        print("✅ DMG created successfully: dist/\(appName).dmg")
+        print("   Version: \(appVersion) (build \(appBuild))")
     }
 }

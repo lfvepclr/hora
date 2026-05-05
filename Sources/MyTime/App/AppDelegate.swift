@@ -1,5 +1,6 @@
 import Cocoa
 import SwiftUI
+import Combine
 
 // 通知名称：调整 popover 位置和大小
 extension Notification.Name {
@@ -20,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }()
     
     private var dateRefreshTimer: Timer?
+    private var restNowCancellables = Set<AnyCancellable>()
     
     // 懒初始化 popover（复用，避免每次重新创建）
     private lazy var popover: NSPopover = {
@@ -63,6 +65,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             HolidayService.shared.preWarmCurrentMonth()
         }
         
+        // 启动 RestNow 订阅
+        setupRestNowSubscription()
+        
         // 监听日期变化
         NotificationCenter.default.addObserver(
             self,
@@ -86,6 +91,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .adjustPopoverSize,
             object: nil
         )
+        
+        // 首次启动显示引导
+        if OnboardingWindowManager.shared.shouldShowOnboarding {
+            // 延迟0.5秒显示，确保菜单栏已初始化
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                OnboardingWindowManager.shared.showIfNeeded()
+            }
+        }
     }
     
     // MARK: - Menu Bar Icon
@@ -183,9 +196,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // 检查点击是否在状态栏按钮上
             if event.window == self.statusItem.button?.window {
-                Task { @MainActor in
-                    self.showContextMenu()
-                }
+                self.showContextMenu()
                 return nil
             }
             
@@ -201,6 +212,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    // MARK: - RestNow Subscription
+    
+    @MainActor
+    private func setupRestNowSubscription() {
+        let session = RestNowSession.shared
+        Publishers.CombineLatest3(session.$isEnabled, session.$remainingSeconds, session.$phase)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isEnabled, _, phase in
+                guard let self = self else { return }
+                if isEnabled {
+                    let progress = session.progress
+                    self.statusItem.button?.image = self.createProgressRingImage(progress: progress, phase: phase)
+                    self.statusItem.button?.imagePosition = .imageLeading
+                } else {
+                    self.statusItem.button?.image = nil
+                }
+            }
+            .store(in: &restNowCancellables)
+    }
+    
+    // MARK: - Progress Ring Image
+    
+    @MainActor
+    private func createProgressRingImage(progress: Double, phase: RestNowSession.Phase) -> NSImage {
+        let size = NSSize(width: 16, height: 16)
+        let colorSettings = RestNowColorSettings.shared
+        let image = NSImage(size: size, flipped: false) { rect in
+            let center = NSPoint(x: rect.midX, y: rect.midY)
+            let radius: CGFloat = 6.0
+            let lineWidth: CGFloat = 2.0
+            
+            // 根据阶段选择颜色
+            let progressColor: NSColor = (phase == .work) ? colorSettings.workColor : colorSettings.restColor
+            
+            // 底圈（浅灰色，使用进度色 opacity 0.3）
+            let bgPath = NSBezierPath()
+            bgPath.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360)
+            bgPath.lineWidth = lineWidth
+            progressColor.withAlphaComponent(0.3).setStroke()
+            bgPath.stroke()
+            
+            // 彩色进度弧线（从12点钟方向顺时针）
+            let startAngle: CGFloat = 90 // 12点钟方向
+            let endAngle: CGFloat = 90 - CGFloat(progress) * 360
+            let progressPath = NSBezierPath()
+            progressPath.appendArc(withCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+            progressPath.lineWidth = lineWidth
+            progressPath.lineCapStyle = .round
+            progressColor.setStroke()
+            progressPath.stroke()
+            
+            // 休息阶段：中心绘制咖啡图标
+            if phase == .rest {
+                if let symbolImage = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: nil) {
+                    let iconSize: CGFloat = 7.0
+                    let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
+                    let configured = symbolImage.withSymbolConfiguration(config) ?? symbolImage
+                    let iconRect = NSRect(
+                        x: center.x - iconSize / 2,
+                        y: center.y - iconSize / 2,
+                        width: iconSize,
+                        height: iconSize
+                    )
+                    progressColor.set()
+                    configured.draw(in: iconRect)
+                }
+            }
+            
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+    
     // MARK: - Context Menu
     
     @MainActor
@@ -208,10 +293,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         
         let menu = NSMenu()
+        menu.autoenablesItems = false
         
-        // 退出菜单项
+        // 定时休息子菜单
+        let restNowItem = NSMenuItem(title: "定时休息", action: nil, keyEquivalent: "")
+        restNowItem.submenu = buildRestNowSubmenu()
+        menu.addItem(restNowItem)
+        
+        menu.addItem(.separator())
+        
+        // 关于
+        let aboutItem = NSMenuItem(
+            title: "关于 \(AppInfo.name)",
+            action: #selector(showAbout),
+            keyEquivalent: ""
+        )
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+        
+        menu.addItem(.separator())
+        
+        // 退出
         let quitItem = NSMenuItem(
-            title: NSLocalizedString("Quit MyTime", comment: "Quit menu item"),
+            title: "退出 \(AppInfo.name)",
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
@@ -221,6 +325,114 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 显示菜单
         let location = NSPoint(x: 0, y: button.bounds.height + 5)
         menu.popUp(positioning: nil, at: location, in: button)
+    }
+    
+    @MainActor
+    private func buildRestNowSubmenu() -> NSMenu {
+        let submenu = NSMenu(title: "定时休息")
+        let session = RestNowSession.shared
+        
+        // 开启/关闭切换
+        let toggleItem = NSMenuItem(
+            title: "开启",
+            action: #selector(toggleRestNow),
+            keyEquivalent: ""
+        )
+        toggleItem.target = self
+        toggleItem.state = session.isEnabled ? .on : .off
+        submenu.addItem(toggleItem)
+        
+        submenu.addItem(.separator())
+        
+        // 休息时间标题
+        let restHeader = NSMenuItem(title: "─── 休息时间 ───", action: nil, keyEquivalent: "")
+        restHeader.isEnabled = false
+        submenu.addItem(restHeader)
+        
+        // 休息时间选项: 1, 3, 5, 10 分钟
+        let currentRestMinutes = UserDefaults.standard.integer(forKey: "mytime.restNow.restDuration") / 60
+        let effectiveRestMinutes = currentRestMinutes > 0 ? currentRestMinutes : 5
+        for minutes in [1, 3, 5, 10] {
+            let item = NSMenuItem(
+                title: "\(minutes) 分钟",
+                action: #selector(selectRestDuration(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.tag = minutes
+            item.state = (minutes == effectiveRestMinutes) ? .on : .off
+            submenu.addItem(item)
+        }
+        
+        submenu.addItem(.separator())
+        
+        // 工作时间标题
+        let workHeader = NSMenuItem(title: "─── 工作时间 ───", action: nil, keyEquivalent: "")
+        workHeader.isEnabled = false
+        submenu.addItem(workHeader)
+        
+        // 工作时间选项: 20, 30, 45, 60 分钟
+        let currentWorkMinutes = UserDefaults.standard.integer(forKey: "mytime.restNow.workDuration") / 60
+        let effectiveWorkMinutes = currentWorkMinutes > 0 ? currentWorkMinutes : 20
+        for minutes in [20, 30, 45, 60] {
+            let item = NSMenuItem(
+                title: "\(minutes) 分钟",
+                action: #selector(selectWorkDuration(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.tag = minutes
+            item.state = (minutes == effectiveWorkMinutes) ? .on : .off
+            submenu.addItem(item)
+        }
+        
+        submenu.addItem(.separator())
+        
+        // 颜色设置
+        let colorItem = NSMenuItem(
+            title: "颜色设置...",
+            action: #selector(showColorSettings),
+            keyEquivalent: ""
+        )
+        colorItem.target = self
+        submenu.addItem(colorItem)
+        
+        return submenu
+    }
+    
+    @objc private func showColorSettings() {
+        ColorSettingsWindowManager.shared.show()
+    }
+    
+    @objc private func toggleRestNow() {
+        RestNowSession.shared.isEnabled.toggle()
+    }
+    
+    @objc private func selectWorkDuration(_ sender: NSMenuItem) {
+        let seconds = sender.tag * 60
+        UserDefaults.standard.set(seconds, forKey: "mytime.restNow.workDuration")
+        let session = RestNowSession.shared
+        if session.isEnabled {
+            session.resetCycle()
+        }
+    }
+    
+    @objc private func selectRestDuration(_ sender: NSMenuItem) {
+        let seconds = sender.tag * 60
+        UserDefaults.standard.set(seconds, forKey: "mytime.restNow.restDuration")
+        let session = RestNowSession.shared
+        if session.isEnabled {
+            session.resetCycle()
+        }
+    }
+    
+    @objc private func showAbout() {
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: AppInfo.name,
+            .applicationVersion: AppInfo.version,
+            .version: AppInfo.build,
+            .credits: NSAttributedString(string: "MIT License\n\(AppInfo.githubURL)")
+        ])
     }
     
     @objc private func quitApp() {
