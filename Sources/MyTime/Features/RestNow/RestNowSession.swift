@@ -44,11 +44,13 @@ final class RestNowSession: NSObject, ObservableObject {
     // MARK: - Computed Properties
 
     var workDuration: Int {
-        max(UserDefaults.standard.integer(forKey: DefaultsKey.workDuration), 20 * 60)
+        let stored = UserDefaults.standard.integer(forKey: DefaultsKey.workDuration)
+        return stored > 0 ? stored : 20 * 60
     }
 
     var restDuration: Int {
-        max(UserDefaults.standard.integer(forKey: DefaultsKey.restDuration), 5 * 60)
+        let stored = UserDefaults.standard.integer(forKey: DefaultsKey.restDuration)
+        return stored > 0 ? stored : 5 * 60
     }
 
     var totalDuration: Int {

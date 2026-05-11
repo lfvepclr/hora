@@ -293,11 +293,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         
         let menu = NSMenu()
-        menu.autoenablesItems = false
         
-        // 定时休息子菜单
-        let restNowItem = NSMenuItem(title: "定时休息", action: nil, keyEquivalent: "")
-        restNowItem.submenu = buildRestNowSubmenu()
+        // 定时休息
+        let restNowItem = NSMenuItem(
+            title: "定时休息",
+            action: #selector(showRestNowSettings),
+            keyEquivalent: ""
+        )
+        restNowItem.target = self
+        restNowItem.isEnabled = true
         menu.addItem(restNowItem)
         
         menu.addItem(.separator())
@@ -322,119 +326,84 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
         
-        // 显示菜单
-        let location = NSPoint(x: 0, y: button.bounds.height + 5)
-        menu.popUp(positioning: nil, at: location, in: button)
+        // 显示菜单（使用 popUpContextMenu 让系统自动处理定位）
+        NSMenu.popUpContextMenu(menu, with: NSApp.currentEvent!, for: button)
     }
     
-    @MainActor
-    private func buildRestNowSubmenu() -> NSMenu {
-        let submenu = NSMenu(title: "定时休息")
-        let session = RestNowSession.shared
-        
-        // 开启/关闭切换
-        let toggleItem = NSMenuItem(
-            title: "开启",
-            action: #selector(toggleRestNow),
-            keyEquivalent: ""
-        )
-        toggleItem.target = self
-        toggleItem.state = session.isEnabled ? .on : .off
-        submenu.addItem(toggleItem)
-        
-        submenu.addItem(.separator())
-        
-        // 休息时间标题
-        let restHeader = NSMenuItem(title: "─── 休息时间 ───", action: nil, keyEquivalent: "")
-        restHeader.isEnabled = false
-        submenu.addItem(restHeader)
-        
-        // 休息时间选项: 1, 3, 5, 10 分钟
-        let currentRestMinutes = UserDefaults.standard.integer(forKey: "mytime.restNow.restDuration") / 60
-        let effectiveRestMinutes = currentRestMinutes > 0 ? currentRestMinutes : 5
-        for minutes in [1, 3, 5, 10] {
-            let item = NSMenuItem(
-                title: "\(minutes) 分钟",
-                action: #selector(selectRestDuration(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.tag = minutes
-            item.state = (minutes == effectiveRestMinutes) ? .on : .off
-            submenu.addItem(item)
-        }
-        
-        submenu.addItem(.separator())
-        
-        // 工作时间标题
-        let workHeader = NSMenuItem(title: "─── 工作时间 ───", action: nil, keyEquivalent: "")
-        workHeader.isEnabled = false
-        submenu.addItem(workHeader)
-        
-        // 工作时间选项: 20, 30, 45, 60 分钟
-        let currentWorkMinutes = UserDefaults.standard.integer(forKey: "mytime.restNow.workDuration") / 60
-        let effectiveWorkMinutes = currentWorkMinutes > 0 ? currentWorkMinutes : 20
-        for minutes in [20, 30, 45, 60] {
-            let item = NSMenuItem(
-                title: "\(minutes) 分钟",
-                action: #selector(selectWorkDuration(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.tag = minutes
-            item.state = (minutes == effectiveWorkMinutes) ? .on : .off
-            submenu.addItem(item)
-        }
-        
-        submenu.addItem(.separator())
-        
-        // 颜色设置
-        let colorItem = NSMenuItem(
-            title: "颜色设置...",
-            action: #selector(showColorSettings),
-            keyEquivalent: ""
-        )
-        colorItem.target = self
-        submenu.addItem(colorItem)
-        
-        return submenu
-    }
+
     
-    @objc private func showColorSettings() {
-        ColorSettingsWindowManager.shared.show()
-    }
-    
-    @objc private func toggleRestNow() {
-        RestNowSession.shared.isEnabled.toggle()
-    }
-    
-    @objc private func selectWorkDuration(_ sender: NSMenuItem) {
-        let seconds = sender.tag * 60
-        UserDefaults.standard.set(seconds, forKey: "mytime.restNow.workDuration")
-        let session = RestNowSession.shared
-        if session.isEnabled {
-            session.resetCycle()
-        }
-    }
-    
-    @objc private func selectRestDuration(_ sender: NSMenuItem) {
-        let seconds = sender.tag * 60
-        UserDefaults.standard.set(seconds, forKey: "mytime.restNow.restDuration")
-        let session = RestNowSession.shared
-        if session.isEnabled {
-            session.resetCycle()
-        }
+    @objc private func showRestNowSettings() {
+        RestNowSettingsWindowManager.shared.show()
     }
     
     @objc private func showAbout() {
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: AppInfo.name,
-            .applicationVersion: AppInfo.version,
-            .version: AppInfo.build,
-            .credits: NSAttributedString(string: "MIT License\n\(AppInfo.githubURL)")
-        ])
+        let iconImage: NSImage? = {
+            if let path = Bundle.main.path(forResource: "AppIcon", ofType: "icns") {
+                return NSImage(contentsOfFile: path)
+            }
+            return NSApplication.shared.applicationIconImage
+        }()
+
+        let aboutView = AboutView(
+            appName: AppInfo.name,
+            version: AppInfo.version,
+            build: AppInfo.build,
+            iconImage: iconImage,
+            license: "MIT License",
+            githubURL: AppInfo.githubURL
+        )
+
+        let hostingController = NSHostingController(rootView: aboutView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "关于 \(AppInfo.name)"
+        window.styleMask = [.titled, .closable]
+        window.level = .floating
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
-    
+
+struct AboutView: View {
+    let appName: String
+    let version: String
+    let build: String
+    let iconImage: NSImage?
+    let license: String
+    let githubURL: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if let icon = iconImage {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 128, height: 128)
+            } else {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 128, height: 128)
+            }
+
+            Text(appName)
+                .font(.title.bold())
+
+            Text("Version \(version) (\(build))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Text(license)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if let url = URL(string: githubURL) {
+                Link(githubURL, destination: url)
+                    .font(.footnote)
+            }
+        }
+        .padding(40)
+        .frame(width: 300, height: 320)
+    }
+}
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }

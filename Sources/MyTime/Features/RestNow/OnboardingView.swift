@@ -131,32 +131,12 @@ struct OnboardingView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("工作时长")
-                        .font(.headline)
-                    Picker("工作时长", selection: $workMinutes) {
-                        Text("20 分钟").tag(20)
-                        Text("30 分钟").tag(30)
-                        Text("45 分钟").tag(45)
-                        Text("60 分钟").tag(60)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("休息时长")
-                        .font(.headline)
-                    Picker("休息时长", selection: $restMinutes) {
-                        Text("5 分钟").tag(5)
-                        Text("10 分钟").tag(10)
-                        Text("20 分钟").tag(20)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-            }
+            RestNowDurationPicker(
+                workMinutes: $workMinutes,
+                restMinutes: $restMinutes,
+                workOptions: [20, 30, 45, 60],
+                restOptions: [5, 10, 20]
+            )
             .padding(.horizontal, 40)
 
             Spacer()

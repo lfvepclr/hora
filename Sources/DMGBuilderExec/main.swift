@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Version Constants (keep in sync with AppInfo.swift)
 private let appName = "MyTime"
-private let appVersion = "2.0.0"
+private let appVersion = "5.0.0"
 private let appBuild = "1"
 private let bundleIdentifier = "com.mytime.app"
 private let minimumSystemVersion = "14.0"
@@ -128,25 +128,44 @@ struct DMGBuilder {
         // ============================================================
         // Step 2: Create app icon (SVG → iconset → icns)
         // ============================================================
+        // Step 2: Use pre-built icon or convert from existing iconset
         print("🎨 Creating app icon...")
-        let svgPath = "\(currentPath)/icon.svg"
-        let iconsetPath = "\(currentPath)/.build/MyTime.iconset"
         let icnsPath = "\(resourcesPath)/AppIcon.icns"
-        
-        if fileManager.fileExists(atPath: svgPath) {
-            try createIconSet(from: svgPath, to: iconsetPath, resourcesPath: resourcesPath)
-            
-            // 使用 iconutil 转换为 icns
+
+        // 优先使用预生成的 icns 文件
+        let prebuiltIcns = "\(currentPath)/Icon.icns"
+        if fileManager.fileExists(atPath: prebuiltIcns) {
+            try fileManager.copyItem(atPath: prebuiltIcns, toPath: icnsPath)
+            print("✅ Copied pre-built icon from Icon.icns")
+        } else if fileManager.fileExists(atPath: "\(currentPath)/Icon.iconset") {
+            // 使用已有的 iconset 目录直接转换
+            let iconsetPath = "\(currentPath)/Icon.iconset"
             try shell("/usr/bin/iconutil", arguments: ["-c", "icns", iconsetPath, "-o", icnsPath], silent: true)
-            
-            // 清理 iconset
-            try? fileManager.removeItem(atPath: iconsetPath)
+            print("✅ Converted Icon.iconset to AppIcon.icns")
+        } else {
+            // 回退：从 SVG 生成
+            var svgPath = "\(currentPath)/icon_new.svg"
+            if !fileManager.fileExists(atPath: svgPath) {
+                svgPath = "\(currentPath)/icon.svg"
+            }
+            let iconsetPath = "\(currentPath)/.build/MyTime.iconset"
+
+            if fileManager.fileExists(atPath: svgPath) {
+                try createIconSet(from: svgPath, to: iconsetPath, resourcesPath: resourcesPath)
+                try shell("/usr/bin/iconutil", arguments: ["-c", "icns", iconsetPath, "-o", icnsPath], silent: true)
+                try? fileManager.removeItem(atPath: iconsetPath)
+            }
         }
-        
+
+
         // ============================================================
         // Step 3: Create Info.plist
         // ============================================================
-        let iconFileName = fileManager.fileExists(atPath: svgPath) ? "AppIcon" : ""
+        let hasIcon = fileManager.fileExists(atPath: "\(currentPath)/Icon.icns")
+            || fileManager.fileExists(atPath: "\(currentPath)/Icon.iconset")
+            || fileManager.fileExists(atPath: "\(currentPath)/icon_new.svg")
+            || fileManager.fileExists(atPath: "\(currentPath)/icon.svg")
+        let iconFileName = hasIcon ? "AppIcon" : ""
         let infoPlist = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

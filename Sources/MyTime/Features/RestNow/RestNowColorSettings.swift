@@ -95,8 +95,7 @@ struct RestNowColorSettingsView: View {
                 }
             }
         }
-        .padding()
-        .frame(width: 320)
+        .padding(.horizontal, 4)
     }
 
     private var workColorBinding: Binding<Color> {
@@ -114,28 +113,3 @@ struct RestNowColorSettingsView: View {
     }
 }
 
-// MARK: - Color Settings Window Manager
-
-@MainActor
-final class ColorSettingsWindowManager {
-    static let shared = ColorSettingsWindowManager()
-    private var window: NSWindow?
-
-    func show() {
-        if let w = window, w.isVisible {
-            w.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-        let view = RestNowColorSettingsView()
-        let hostingController = NSHostingController(rootView: view)
-        let w = NSWindow(contentViewController: hostingController)
-        w.title = "颜色设置"
-        w.styleMask = [.titled, .closable]
-        w.setContentSize(NSSize(width: 340, height: 200))
-        w.center()
-        w.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        window = w
-    }
-}

@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <!-- 背景渐变：珊瑚橙到深紫 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B"/>
+      <stop offset="50%" style="stop-color:#9B59B6"/>
+      <stop offset="100%" style="stop-color:#2C3E50"/>
+    </linearGradient>
+
+    <!-- 休息进度弧渐变：橙色到金色 -->
+    <linearGradient id="restArc" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF9F43"/>
+      <stop offset="100%" style="stop-color:#FFD700"/>
+    </linearGradient>
+
+    <!-- 日历纸张渐变 -->
+    <linearGradient id="paperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#F0F0F5"/>
+    </linearGradient>
+
+    <!-- 光晕滤镜 -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 阴影 -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
+  </defs>
+
+  <!-- 背景圆：主要时钟 -->
+  <circle cx="58" cy="64" r="48" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- 外圈白色细边框 -->
+  <circle cx="58" cy="64" r="46" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+
+  <!-- 昼夜分隔弧（世界时钟概念）- 右上亮，左下暗 -->
+  <path d="M 58 18 A 46 46 0 0 1 104 64" fill="rgba(255,255,255,0.08)"/>
+  <path d="M 58 110 A 46 46 0 0 1 12 64" fill="rgba(0,0,0,0.15)"/>
+
+  <!-- 时钟刻度 - 12点 -->
+  <line x1="58" y1="22" x2="58" y2="28" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- 3点 -->
+  <line x1="100" y1="64" x2="94" y2="64" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- 6点 -->
+  <line x1="58" y1="106" x2="58" y2="100" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- 9点 -->
+  <line x1="16" y1="64" x2="22" y2="64" stroke="white" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- 小刻度 -->
+  <g stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round">
+    <line x1="78" y1="24" x2="75" y2="28"/>
+    <line x1="95" y1="37" x2="91" y2="41"/>
+    <line x1="104" y1="58" x2="100" y2="58"/>
+    <line x1="95" y1="79" x2="91" y2="75"/>
+    <line x1="38" y1="24" x2="41" y2="28"/>
+    <line x1="21" y1="37" x2="25" y2="41"/>
+    <line x1="12" y1="58" x2="16" y2="58"/>
+    <line x1="21" y1="79" x2="25" y2="75"/>
+    <line x1="78" y1="104" x2="75" y2="100"/>
+    <line x1="38" y1="104" x2="41" y2="100"/>
+  </g>
+
+  <!-- 时针：指向10:10（经典手表角度，V字形） -->
+  <line x1="58" y1="64" x2="38" y2="44" stroke="white" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- 分针：指向约2点 -->
+  <line x1="58" y1="64" x2="82" y2="34" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- 秒针：橙红色，活沷感 -->
+  <line x1="58" y1="64" x2="30" y2="85" stroke="#FFE066" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- 中心圆 -->
+  <circle cx="58" cy="64" r="5" fill="white"/>
+  <circle cx="58" cy="64" r="2.5" fill="url(#bgGrad)"/>
+
+  <!-- ============ 右上角日历 ============ -->
+  <!-- 日历顶部翻页 -->
+  <path d="M 90 30 L 90 20 Q 90 18 92 18 L 112 18 Q 114 18 114 20 L 114 30 Z"
+        fill="#FF6B6B"/>
+  <!-- 日历翻页圆孔 -->
+  <circle cx="97" cy="24" r="2" fill="rgba(0,0,0,0.2)"/>
+  <circle cx="107" cy="24" r="2" fill="rgba(0,0,0,0.2)"/>
+
+  <!-- 日历主体（白色纸张，阴影） -->
+  <rect x="88" y="30" width="28" height="26" rx="3"
+        fill="url(#paperGrad)" filter="url(#shadow)"/>
+
+  <!-- 日历红色竖条（节假日标记条） -->
+  <rect x="88" y="30" width="5" height="26" rx="2"
+        fill="#FF4757" opacity="0.9"/>
+
+  <!-- 日历日期文字（简化：横线表示日期行） -->
+  <line x1="96" y1="40" x2="112" y2="40" stroke="#CBD5E0" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="96" y1="46" x2="108" y2="46" stroke="#CBD5E0" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="96" y1="52" x2="110" y2="52" stroke="#CBD5E0" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- ============ 右下角休息进度弧 ============ -->
+  <!-- 底圈（灰色） -->
+  <circle cx="58" cy="64" r="52"
+          fill="none" stroke="rgba(255,255,255,0.12)"
+          stroke-width="6" stroke-dasharray="327" stroke-dashoffset="0"
+          stroke-linecap="round" transform="rotate(-90 58 64)"/>
+
+  <!-- 进度弧（橙色渐变，约60%进度=休息中） -->
+  <circle cx="58" cy="64" r="52"
+          fill="none" stroke="url(#restArc)"
+          stroke-width="6" stroke-dasharray="327" stroke-dashoffset="130"
+          stroke-linecap="round" transform="rotate(-90 58 64)"/>
+
+  <!-- 休息弧两端圆帽 -->
+  <circle cx="104" cy="90" r="4" fill="#FF9F43" filter="url(#glow)"/>
+
+  <!-- 休息时长数字 -->
+  <text x="58" y="108" font-family="SF Pro Display, -apple-system, sans-serif"
+        font-size="9" font-weight="600" fill="rgba(255,255,255,0.7)"
+        text-anchor="middle">REST</text>
+
+  <!-- ============ 左下角黄历元素 ============ -->
+  <!-- 太极/八卦简化符号 -->
+  <circle cx="26" cy="98" r="12"
+          fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.35)"
+          stroke-width="1"/>
+  <!-- 太极 -->
+  <path d="M 26 86 A 6 6 0 0 1 26 98 A 6 6 0 0 1 26 110"
+        fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>
+  <circle cx="26" cy="92" r="2.5" fill="rgba(255,255,255,0.6)"/>
+  <circle cx="26" cy="104" r="2.5" fill="rgba(255,255,255,0.2)"/>
+
+  <!-- 宜/忌 文字标签 -->
+  <text x="26" y="116" font-family="PingFang SC, SF Pro SC, sans-serif"
+        font-size="6" font-weight="500" fill="rgba(255,255,255,0.55)"
+        text-anchor="middle">黄历</text>
+
+  <!-- ============ 顶部装饰：星宿小点 ============ -->
+  <g fill="rgba(255,255,255,0.6)">
+    <circle cx="58" cy="12" r="1.5"/>
+    <circle cx="45" cy="14" r="1"/>
+    <circle cx="71" cy="14" r="1"/>
+    <circle cx="35" cy="20" r="0.8"/>
+    <circle cx="81" cy="20" r="0.8"/>
+  </g>
+</svg>
