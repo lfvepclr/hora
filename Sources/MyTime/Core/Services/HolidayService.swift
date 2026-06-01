@@ -101,9 +101,11 @@ class HolidayService {
         let leadingDays = weekday == 1 ? 6 : weekday - 2
         
         var dates: [Date] = []
-        for i in 1...leadingDays {
-            if let prevDate = calendar.date(byAdding: .day, value: -i, to: date) {
-                dates.insert(prevDate, at: 0)
+        if leadingDays > 0 {
+            for i in 1...leadingDays {
+                if let prevDate = calendar.date(byAdding: .day, value: -i, to: date) {
+                    dates.insert(prevDate, at: 0)
+                }
             }
         }
         while date < monthInterval.end {

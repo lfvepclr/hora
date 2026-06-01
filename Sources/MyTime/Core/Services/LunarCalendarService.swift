@@ -86,9 +86,11 @@ class LunarCalendarService {
         
         // 前置天数
         var dates: [Date] = []
-        for i in 1...leadingDays {
+        if leadingDays > 0 {
+            for i in 1...leadingDays {
             if let prevDate = calendar.date(byAdding: .day, value: -i, to: date) {
                 dates.insert(prevDate, at: 0)
+            }
             }
         }
         // 当月天数

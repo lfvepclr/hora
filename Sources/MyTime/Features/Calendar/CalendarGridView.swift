@@ -38,9 +38,11 @@ struct CalendarGridView: View {
         let weekday = Calendar.current.component(.weekday, from: date)
         // 调整为周一开始 (周日=1, 周一=2, ...)
         let leadingDays = weekday == 1 ? 6 : weekday - 2
-        for i in 1...leadingDays {
-            if let prevDate = Calendar.current.date(byAdding: .day, value: -i, to: date) {
-                dates.insert(prevDate, at: 0)
+        if leadingDays > 0 {
+            for i in 1...leadingDays {
+                if let prevDate = Calendar.current.date(byAdding: .day, value: -i, to: date) {
+                    dates.insert(prevDate, at: 0)
+                }
             }
         }
         
