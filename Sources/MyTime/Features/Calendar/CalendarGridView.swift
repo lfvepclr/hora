@@ -52,8 +52,10 @@ struct CalendarGridView: View {
             date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
         }
         
-        // 添加后一个月的天数来填满网格 (6行 x 7列 = 42天)
-        while dates.count < 42 {
+        // 添加后一个月的天数来填满网格（按实际需要的行数填充，而非固定6行）
+        let rows = (dates.count + 6) / 7  // 向上取整计算所需行数
+        let totalCells = rows * 7
+        while dates.count < totalCells {
             dates.append(date)
             date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
         }
@@ -120,14 +122,7 @@ struct CompactDayCell: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(backgroundColor)
                 .frame(height: 54)
-            
-            // 今天边框（仅今天显示蓝色边框）
-            if isToday {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(red: 0.2, green: 0.5, blue: 0.95), lineWidth: 1.5)
-                    .frame(height: 54)
-            }
-            
+
             // 内容层 - 使用frame(maxWidth:)确保居中
             VStack(spacing: 2) {
                 // 日期数字 - 百度日历使用更大的字体
@@ -201,11 +196,11 @@ struct CompactDayCell: View {
             return Color(red: 1, green: 0.92, blue: 0.93)
         }
         
-        // 选中：浅蓝色背景
-        if isSelected {
+        // 选中：浅蓝色背景（今天不叠加选中背景，避免亮蓝色外框）
+        if isSelected && !isToday {
             return Color(red: 0.9, green: 0.95, blue: 1)
         }
-        
+
         return Color.white
     }
     

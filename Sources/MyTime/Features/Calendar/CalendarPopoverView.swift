@@ -79,12 +79,6 @@ struct CalendarPopoverView: View {
     // MARK: - 左侧日历区域
     private var leftCalendarView: some View {
         VStack(spacing: 0) {
-            // 头部：月份导航
-            headerView
-            
-            Divider()
-                .padding(.horizontal, 8)
-            
             // 星期标题
             weekdayHeaderView
                 .padding(.horizontal, 8)
@@ -103,46 +97,6 @@ struct CalendarPopoverView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
         }
-    }
-    
-    // MARK: - Header
-    
-    private var headerView: some View {
-        HStack {
-            // 月份导航
-            HStack(spacing: 4) {
-                Button(action: previousMonth) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .buttonStyle(.plain)
-                
-                Text(monthYearString)
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(minWidth: 100)
-                
-                Button(action: nextMonth) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .buttonStyle(.plain)
-            }
-            
-            Spacer()
-            
-            // 年视图切换
-            Button(action: { viewModel.isYearView.toggle() }) {
-                Image(systemName: viewModel.isYearView ? "calendar" : "square.grid.2x2")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-    
-    private var monthYearString: String {
-        DateFormatterCache.formatter(format: "yyyy年M月").string(from: viewModel.currentDate)
     }
     
     // MARK: - Weekday Header
@@ -181,24 +135,13 @@ struct CalendarPopoverView: View {
                     .font(.system(size: 12))
             }
             .buttonStyle(.plain)
-            
+            .focusEffectDisabled()
+
             Spacer()
         }
     }
     
     // MARK: - Actions
-    
-    private func previousMonth() {
-        viewModel.currentDate = Calendar.current.date(
-            byAdding: .month, value: -1, to: viewModel.currentDate
-        ) ?? viewModel.currentDate
-    }
-    
-    private func nextMonth() {
-        viewModel.currentDate = Calendar.current.date(
-            byAdding: .month, value: 1, to: viewModel.currentDate
-        ) ?? viewModel.currentDate
-    }
     
     private func goToToday() {
         viewModel.currentDate = Date()
@@ -323,6 +266,7 @@ struct DateDetailPanel: View {
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
             .contentShape(Rectangle())
             .cornerRadius(12)
             .onHover { isHovering in
@@ -332,7 +276,7 @@ struct DateDetailPanel: View {
                     NSCursor.pop()
                 }
             }
-            
+
             // 农历日期
             
             HStack(spacing: 6) {
