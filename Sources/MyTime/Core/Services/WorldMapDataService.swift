@@ -165,25 +165,50 @@ class WorldMapDataService {
         // 释放重量级的原始countries数组（pathPoints占大量内存）
         self.countries = []
         
-        print("Pre-rendered map image (\(Int(renderWidth))x\(Int(renderHeight))), released pathPoints")
+        CrashLogService.shared.log("Pre-rendered map image (\(Int(renderWidth))x\(Int(renderHeight))), released pathPoints")
     }
     
     // MARK: - Data Loading
     
     private func loadMapData() async {
-        // 从Bundle.module加载world.json
-        guard let url = Bundle.module.url(forResource: "world", withExtension: "json") else {
-            print("ERROR: world.json not found in bundle")
+        // 从Bundle加载world.json，支持多个搜索路径
+        let logger = CrashLogService.shared
+        
+        // 1. 尝试 Bundle.module
+        var url = Bundle.module.url(forResource: "world", withExtension: "json")
+        
+        // 2. 尝试 Bundle.main
+        if url == nil {
+            url = Bundle.main.url(forResource: "world", withExtension: "json")
+            if url != nil {
+                logger.log("WorldMapDataService: Found world.json in Bundle.main")
+            }
+        } else {
+            logger.log("WorldMapDataService: Found world.json in Bundle.module")
+        }
+        
+        // 3. 尝试 SPM 资源 bundle 子目录
+        if url == nil, let resourceURL = Bundle.main.resourceURL {
+            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            if let bundle = Bundle(url: spmBundlePath),
+               let bundleURL = bundle.url(forResource: "world", withExtension: "json") {
+                url = bundleURL
+                logger.log("WorldMapDataService: Found world.json in SPM resource bundle")
+            }
+        }
+        
+        guard let fileURL = url else {
+            logger.logError("world.json not found in any bundle location")
             return
         }
         
         let loadedMapData = await Task.detached(priority: .userInitiated) { () -> WorldMapData? in
             do {
-                let data = try Data(contentsOf: url)
+                let data = try Data(contentsOf: fileURL)
                 let decoder = JSONDecoder()
                 return try decoder.decode(WorldMapData.self, from: data)
             } catch {
-                print("ERROR loading world.json: \(error)")
+                logger.logError("Error loading world.json: \(error)")
                 return nil
             }
         }.value
@@ -198,23 +223,37 @@ class WorldMapDataService {
         // 释放原始解码数据，只保留处理后的countries
         self.mapData = nil
         
-        print("Loaded \(countries.count) countries from world.json")
+        logger.log("Loaded \(countries.count) countries from world.json")
     }
     
     private func loadCountryTimezones() async {
-        guard let url = Bundle.module.url(forResource: "countryTimezones", withExtension: "json") else {
-            print("WARN: countryTimezones.json not found, using default mapping")
+        let logger = CrashLogService.shared
+        
+        // 尝试多个路径搜索 countryTimezones.json
+        var url = Bundle.module.url(forResource: "countryTimezones", withExtension: "json")
+        if url == nil {
+            url = Bundle.main.url(forResource: "countryTimezones", withExtension: "json")
+        }
+        if url == nil, let resourceURL = Bundle.main.resourceURL {
+            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            if let bundle = Bundle(url: spmBundlePath) {
+                url = bundle.url(forResource: "countryTimezones", withExtension: "json")
+            }
+        }
+        
+        guard let fileURL = url else {
+            logger.logWarning("countryTimezones.json not found, using default mapping")
             generateDefaultTimezoneMapping()
             return
         }
         
         let timezoneInfos = await Task.detached(priority: .userInitiated) { () -> [CountryTimezoneInfo]? in
             do {
-                let data = try Data(contentsOf: url)
+                let data = try Data(contentsOf: fileURL)
                 let decoder = JSONDecoder()
                 return try decoder.decode([CountryTimezoneInfo].self, from: data)
             } catch {
-                print("ERROR loading countryTimezones.json: \(error)")
+                logger.logError("Error loading countryTimezones.json: \(error)")
                 return nil
             }
         }.value
@@ -228,18 +267,33 @@ class WorldMapDataService {
             countryTimezones[info.countryCode] = info
         }
         
-        print("Loaded timezone info for \(countryTimezones.count) countries")
+        logger.log("Loaded timezone info for \(countryTimezones.count) countries")
     }
     
     /// 生成默认的时区映射（基于cities24tz.json）
     private func generateDefaultTimezoneMapping() {
         // 从cities24tz.json构建国家->时区映射
-        guard let url = Bundle.module.url(forResource: "cities24tz", withExtension: "json") else {
+        let logger = CrashLogService.shared
+        
+        // 尝试多个路径搜索 cities24tz.json
+        var url = Bundle.module.url(forResource: "cities24tz", withExtension: "json")
+        if url == nil {
+            url = Bundle.main.url(forResource: "cities24tz", withExtension: "json")
+        }
+        if url == nil, let resourceURL = Bundle.main.resourceURL {
+            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            if let bundle = Bundle(url: spmBundlePath) {
+                url = bundle.url(forResource: "cities24tz", withExtension: "json")
+            }
+        }
+        
+        guard let fileURL = url else {
+            logger.logWarning("cities24tz.json not found for default timezone mapping")
             return
         }
         
         do {
-            let data = try Data(contentsOf: url)
+            let data = try Data(contentsOf: fileURL)
             if let cities = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                 var mapping: [String: [String: Set<String>]] = [:] // countryCode -> [timezone -> cities]
                 
@@ -263,7 +317,7 @@ class WorldMapDataService {
                 }
             }
         } catch {
-            print("ERROR generating default timezone mapping: \(error)")
+            logger.logError("Error generating default timezone mapping: \(error)")
         }
     }
     

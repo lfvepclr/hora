@@ -13,6 +13,75 @@ extension Notification.Name {
 class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Properties
     
+    // SPM 资源 bundle 名称
+    private static let resourceBundleName = "MyTime_MyTime"
+    
+    /// 确保 SPM 资源 bundle 在 Bundle.module 可访问的路径上
+    /// SPM 生成的 resource_bundle_accessor 只搜索两个位置:
+    ///   1. Bundle.main.bundleURL 根目录（如 MyTime.app/MyTime_MyTime.bundle）
+    ///   2. 构建时硬编码的路径
+    /// 但 macOS .app bundle 的资源应在 Contents/Resources/ 中，
+    /// 导致部署后 Bundle.module 首次访问时 fatalError
+    @MainActor
+    private static func ensureResourceBundleAccessible() {
+        let bundleName = resourceBundleName + ".bundle"
+        let appBundleURL = Bundle.main.bundleURL
+        let expectedPath = appBundleURL.appendingPathComponent(bundleName)
+        
+        // 如果 Bundle.module 期望的位置已经存在 bundle，无需修复
+        if FileManager.default.fileExists(atPath: expectedPath.path) {
+            return
+        }
+        
+        // 检查 Contents/Resources/ 中是否存在资源 bundle
+        let resourceDir = appBundleURL.appendingPathComponent("Contents/Resources")
+        let resourceBundlePath = resourceDir.appendingPathComponent(bundleName)
+        
+        if FileManager.default.fileExists(atPath: resourceBundlePath.path) {
+            // 创建符号链接: MyTime.app/MyTime_MyTime.bundle → Contents/Resources/MyTime_MyTime.bundle
+            do {
+                // 如果目标位置是文件而非目录，先删除
+                if FileManager.default.fileExists(atPath: expectedPath.path) {
+                    try FileManager.default.removeItem(at: expectedPath)
+                }
+                try FileManager.default.createSymbolicLink(
+                    atPath: expectedPath.path,
+                    withDestinationPath: "Contents/Resources/" + bundleName
+                )
+                // 记录到 stderr（此时 CrashLogService 尚未初始化）
+                fputs("[MyTime] Created symlink for resource bundle: \(expectedPath.path) -> Contents/Resources/\(bundleName)\n", stderr)
+            } catch {
+                fputs("[MyTime] Failed to create symlink for resource bundle: \(error)\n", stderr)
+                // 符号链接失败时，尝试直接复制
+                do {
+                    try FileManager.default.copyItem(atPath: resourceBundlePath.path, toPath: expectedPath.path)
+                    fputs("[MyTime] Copied resource bundle to expected location\n", stderr)
+                } catch {
+                    fputs("[MyTime] Failed to copy resource bundle: \(error)\n", stderr)
+                }
+            }
+        } else {
+            // Contents/Resources/ 中也不存在 bundle，无法修复
+            fputs("[MyTime] WARNING: Resource bundle \(bundleName) not found in Contents/Resources/\n", stderr)
+            // 尝试在可执行文件旁边搜索
+            if let execURL = Bundle.main.executableURL {
+                let execDir = execURL.deletingLastPathComponent()
+                let execDirBundle = execDir.appendingPathComponent(bundleName)
+                if FileManager.default.fileExists(atPath: execDirBundle.path) {
+                    do {
+                        try FileManager.default.createSymbolicLink(
+                            atPath: expectedPath.path,
+                            withDestinationPath: execDir.appendingPathComponent(bundleName).path
+                        )
+                        fputs("[MyTime] Created symlink from executable dir bundle\n", stderr)
+                    } catch {
+                        fputs("[MyTime] Failed to create symlink: \(error)\n", stderr)
+                    }
+                }
+            }
+        }
+    }
+    
     private lazy var statusItem: NSStatusItem = {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "MyTime"
@@ -37,15 +106,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // ⚠️ 第一步：修复 SPM 资源 bundle 路径（必须在访问 Bundle.module 之前！）
+        // SPM 的 resource_bundle_accessor 只搜索 Bundle.main.bundleURL 根目录和构建目录，
+        // 不会搜索 Contents/Resources/，导致部署后 Bundle.module 访问时 fatalError
+        Self.ensureResourceBundleAccessible()
+        
+        let logger = CrashLogService.shared
+        
+        // 第二步：初始化崩溃日志系统
+        logger.setup()
+        logger.log("=== MyTime starting ===")
+        logger.log("Version: \(AppInfo.version) (\(AppInfo.build))")
+        logger.log("OS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        logger.log("Bundle: \(Bundle.main.bundlePath)")
+        logger.log("Module Bundle: \(Bundle.module.bundlePath)")
+        
         // 设置为附件应用，不在 Dock 中显示图标
         NSApp.setActivationPolicy(.accessory)
+        logger.log("Activation policy set to accessory")
         
         // 设置菜单栏图标
         updateMenuBarIcon()
         statusItem.isVisible = true
+        logger.log("Menu bar icon set successfully")
         
         // 设置点击事件
         setupClickHandler()
+        logger.log("Click handler set up")
         
         // 每分钟更新一次图标（日期变化时）
         dateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
@@ -55,18 +142,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // 后台预加载世界地图数据（约1MB内存，换取秒开体验）
+        logger.log("Starting WorldMapDataService preload")
         Task.detached(priority: .userInitiated) {
             await WorldMapDataService.shared.ensureLoaded()
+            await MainActor.run {
+                logger.log("WorldMapDataService preload completed")
+            }
         }
         
         // 后台预热当月日历数据（农历+节假日），确保首次打开0延迟
+        logger.log("Starting calendar data prewarm")
         Task { @MainActor in
             LunarCalendarService.shared.preWarmCurrentMonth()
+            logger.log("LunarCalendarService prewarm completed")
             HolidayService.shared.preWarmCurrentMonth()
+            logger.log("HolidayService prewarm completed")
         }
         
         // 启动 RestNow 订阅
         setupRestNowSubscription()
+        logger.log("RestNow subscription set up")
         
         // 监听日期变化
         NotificationCenter.default.addObserver(
@@ -98,7 +193,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 OnboardingWindowManager.shared.showIfNeeded()
             }
+            logger.log("Onboarding will be shown")
         }
+        
+        logger.log("=== MyTime startup completed ===")
     }
     
     // MARK: - Menu Bar Icon
@@ -327,7 +425,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
         
         // 显示菜单（使用 popUpContextMenu 让系统自动处理定位）
-        NSMenu.popUpContextMenu(menu, with: NSApp.currentEvent!, for: button)
+        if let event = NSApp.currentEvent {
+            NSMenu.popUpContextMenu(menu, with: event, for: button)
+        } else {
+            // 无当前事件时（极端情况），直接在按钮下方显示
+            NSMenu.popUpContextMenu(menu, with: NSEvent(), for: button)
+        }
     }
     
 

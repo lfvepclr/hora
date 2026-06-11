@@ -61,4 +61,39 @@ struct WorldCity: Identifiable, Equatable, Codable {
     static func == (lhs: WorldCity, rhs: WorldCity) -> Bool {
         lhs.id == rhs.id
     }
+    
+    /// 基于时区构造一个 fallback 城市（当 Cities.json 加载失败时使用）
+    static func fallbackCity(for timezone: TimeZone) -> WorldCity {
+        let tzName = timezone.identifier
+        // 尝试从时区标识符提取城市名（如 "Asia/Shanghai" → "Shanghai"）
+        let cityName: String
+        if let slashIndex = tzName.lastIndex(of: "/") {
+            cityName = String(tzName[tzName.index(after: slashIndex)...])
+                .replacingOccurrences(of: "_", with: " ")
+        } else {
+            cityName = tzName
+        }
+        
+        return WorldCity(
+            name: cityName,
+            localizedName: cityName,
+            country: "",
+            latitude: 0,
+            longitude: 0,
+            timezoneIdentifier: tzName,
+            isMajor: true
+        )
+    }
+    
+    /// 直接初始化器（供 fallback 等场景使用）
+    init(name: String, localizedName: String, country: String, latitude: Double, longitude: Double, timezoneIdentifier: String, isMajor: Bool = false) {
+        self.id = UUID()
+        self.name = name
+        self.localizedName = localizedName
+        self.country = country
+        self.latitude = latitude
+        self.longitude = longitude
+        self.timezoneIdentifier = timezoneIdentifier
+        self.isMajor = isMajor
+    }
 }
