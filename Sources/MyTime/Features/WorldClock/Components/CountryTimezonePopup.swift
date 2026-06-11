@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // MARK: - Country Timezone Popup
 
@@ -201,25 +202,31 @@ struct CurrentTimePanelView: View {
     let currentTime: Date
     let isHovered: Bool
     
+    // 秒级本地定时器，仅刷新本面板
+    @State private var localTime = Date()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
+    private var effectiveTime: Date { localTime }
+    
     private var timeString: String {
-        DateFormatterCache.formatter(format: "HH:mm:ss", timeZone: city.timeZone).string(from: currentTime)
+        DateFormatterCache.formatter(format: "HH:mm:ss", timeZone: city.timeZone).string(from: effectiveTime)
     }
     
     private var ampmString: String {
-        DateFormatterCache.formatter(format: "a", timeZone: city.timeZone).string(from: currentTime)
+        DateFormatterCache.formatter(format: "a", timeZone: city.timeZone).string(from: effectiveTime)
     }
     
     private var dateString: String {
-        DateFormatterCache.formatter(format: "yyyy年M月d日", timeZone: city.timeZone).string(from: currentTime)
+        DateFormatterCache.formatter(format: "yyyy年M月d日", timeZone: city.timeZone).string(from: effectiveTime)
     }
     
     private var weekdayString: String {
-        DateFormatterCache.formatter(format: "EEEE", timeZone: city.timeZone, locale: Locale(identifier: "zh_Hans")).string(from: currentTime)
+        DateFormatterCache.formatter(format: "EEEE", timeZone: city.timeZone, locale: Locale(identifier: "zh_Hans")).string(from: effectiveTime)
     }
     
     private var utcOffsetString: String {
         let timeZone = city.timeZone
-        let offset = timeZone.secondsFromGMT(for: currentTime)
+        let offset = timeZone.secondsFromGMT(for: effectiveTime)
         let hours = offset / 3600
         let minutes = abs(offset % 3600) / 60
         
@@ -232,7 +239,7 @@ struct CurrentTimePanelView: View {
     
     private var dstString: String {
         let timeZone = city.timeZone
-        let isDST = timeZone.isDaylightSavingTime(for: currentTime)
+        let isDST = timeZone.isDaylightSavingTime(for: effectiveTime)
         return isDST ? "夏令时" : "冬令时"
     }
     
@@ -278,5 +285,11 @@ struct CurrentTimePanelView: View {
                 .fill(Color(red: 13/255, green: 46/255, blue: 107/255))
                 .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
         )
+        .onReceive(timer) { _ in
+            localTime = Date()
+        }
+        .onAppear {
+            localTime = Date()
+        }
     }
 }
