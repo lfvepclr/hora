@@ -202,7 +202,7 @@ struct CurrentTimePanelView: View {
     let isHovered: Bool
     
     private var timeString: String {
-        DateFormatterCache.formatter(format: "HH:mm", timeZone: city.timeZone).string(from: currentTime)
+        DateFormatterCache.formatter(format: "HH:mm:ss", timeZone: city.timeZone).string(from: currentTime)
     }
     
     private var ampmString: String {
