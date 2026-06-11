@@ -161,19 +161,10 @@ class WorldClockViewModel: ObservableObject {
     func startTimer() {
         guard timer == nil else { return }
         currentTime = Date()
-        // 计算到下一个整分钟的延迟
-        let seconds = Calendar.current.component(.second, from: Date())
-        let delay = max(1, TimeInterval(60 - seconds))
-        // 先等到整分钟，再每60秒更新
-        timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+        // 每秒更新以支持时分秒显示
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.currentTime = Date()
-                self?.timer?.invalidate()
-                self?.timer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
-                    Task { @MainActor in
-                        self?.currentTime = Date()
-                    }
-                }
             }
         }
     }
