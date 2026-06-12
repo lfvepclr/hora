@@ -89,13 +89,13 @@ struct CalendarPopoverView: View {
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
             
-            Divider()
-                .padding(.horizontal, 8)
+            // Divider()
+            //     .padding(.horizontal, 8)
             
-            // 底部：今日按钮
-            footerView
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+            // // 底部：今日按钮
+            // footerView
+            //     .padding(.horizontal, 12)
+            //     .padding(.vertical, 8)
         }
     }
     

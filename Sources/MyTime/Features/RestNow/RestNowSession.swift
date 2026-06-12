@@ -112,6 +112,7 @@ final class RestNowSession: NSObject, ObservableObject {
     // MARK: - Public Methods
 
     func resetCycle() {
+        BreakOverlayWindowManager.shared.hide()
         phase = .work
         remainingSeconds = workDuration
     }
@@ -302,7 +303,13 @@ final class RestNowSession: NSObject, ObservableObject {
             return
         }
 
-        resetCycle()
+        // 无 lockedAt 记录（系统睡眠未经过锁屏、或锁屏检测被跳过）
+        // 根据当前阶段分别处理，避免休息遮罩显示工作时间
+        if phase == .rest {
+            skipBreak()
+        } else {
+            resetCycle()
+        }
         if isPaused {
             isPaused = false
             startTimer()
