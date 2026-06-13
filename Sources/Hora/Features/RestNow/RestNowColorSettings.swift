@@ -7,15 +7,15 @@ final class RestNowColorSettings: ObservableObject {
     static let shared = RestNowColorSettings()
 
     @Published var workColor: NSColor {
-        didSet { saveColor(workColor, forKey: "mytime.restNow.workCircleColor") }
+        didSet { saveColor(workColor, forKey: "hora.restNow.workCircleColor") }
     }
     @Published var restColor: NSColor {
-        didSet { saveColor(restColor, forKey: "mytime.restNow.restCircleColor") }
+        didSet { saveColor(restColor, forKey: "hora.restNow.restCircleColor") }
     }
 
     private init() {
-        workColor = Self.loadColor(forKey: "mytime.restNow.workCircleColor") ?? NSColor.systemTeal
-        restColor = Self.loadColor(forKey: "mytime.restNow.restCircleColor") ?? NSColor.systemOrange
+        workColor = Self.loadColor(forKey: "hora.restNow.workCircleColor") ?? NSColor.systemTeal
+        restColor = Self.loadColor(forKey: "hora.restNow.restCircleColor") ?? NSColor.systemOrange
     }
 
     private func saveColor(_ color: NSColor, forKey key: String) {

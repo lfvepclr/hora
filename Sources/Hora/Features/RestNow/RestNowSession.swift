@@ -15,9 +15,9 @@ final class RestNowSession: NSObject, ObservableObject {
     // MARK: - UserDefaults Keys
 
     private enum DefaultsKey {
-        static let workDuration = "mytime.restNow.workDuration"
-        static let restDuration = "mytime.restNow.restDuration"
-        static let isEnabled = "mytime.restNow.isEnabled"
+        static let workDuration = "hora.restNow.workDuration"
+        static let restDuration = "hora.restNow.restDuration"
+        static let isEnabled = "hora.restNow.isEnabled"
     }
 
     // MARK: - Published Properties

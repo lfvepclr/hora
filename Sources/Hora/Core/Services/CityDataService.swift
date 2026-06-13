@@ -52,8 +52,8 @@ class CityDataService {
         // 3. 在 .app 的 Resources 子目录中查找 SPM 资源 bundle
         let resourceURL = Bundle.main.resourceURL
         let candidates = [
-            "MyTime_MyTime",
-            "MyTime_MyTime.bundle/MyTime_MyTime",
+            "Hora_Hora",
+            "Hora_Hora.bundle/Hora_Hora",
         ]
         for candidate in candidates {
             if let resourceURL = resourceURL {
@@ -70,7 +70,7 @@ class CityDataService {
         // 4. 在可执行文件旁边查找（swift run 模式）
         if let execURL = Bundle.main.executableURL {
             let execDir = execURL.deletingLastPathComponent()
-            let spmBundlePath = execDir.appendingPathComponent("MyTime_MyTime.bundle")
+            let spmBundlePath = execDir.appendingPathComponent("Hora_Hora.bundle")
             if let bundle = Bundle(url: spmBundlePath),
                let url = bundle.url(forResource: name, withExtension: ext) {
                 logger.log("Found \(name).\(ext) next to executable: \(spmBundlePath.path)")

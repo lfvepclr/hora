@@ -189,7 +189,7 @@ class WorldMapDataService {
         
         // 3. 尝试 SPM 资源 bundle 子目录
         if url == nil, let resourceURL = Bundle.main.resourceURL {
-            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            let spmBundlePath = resourceURL.appendingPathComponent("Hora_Hora")
             if let bundle = Bundle(url: spmBundlePath),
                let bundleURL = bundle.url(forResource: "world", withExtension: "json") {
                 url = bundleURL
@@ -235,7 +235,7 @@ class WorldMapDataService {
             url = Bundle.main.url(forResource: "countryTimezones", withExtension: "json")
         }
         if url == nil, let resourceURL = Bundle.main.resourceURL {
-            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            let spmBundlePath = resourceURL.appendingPathComponent("Hora_Hora")
             if let bundle = Bundle(url: spmBundlePath) {
                 url = bundle.url(forResource: "countryTimezones", withExtension: "json")
             }
@@ -281,7 +281,7 @@ class WorldMapDataService {
             url = Bundle.main.url(forResource: "cities24tz", withExtension: "json")
         }
         if url == nil, let resourceURL = Bundle.main.resourceURL {
-            let spmBundlePath = resourceURL.appendingPathComponent("MyTime_MyTime")
+            let spmBundlePath = resourceURL.appendingPathComponent("Hora_Hora")
             if let bundle = Bundle(url: spmBundlePath) {
                 url = bundle.url(forResource: "cities24tz", withExtension: "json")
             }

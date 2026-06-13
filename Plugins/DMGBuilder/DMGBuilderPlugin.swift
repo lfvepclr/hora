@@ -6,7 +6,7 @@ struct DMGBuilderPlugin: CommandPlugin {
     func performCommand(context: PluginContext, arguments: [String]) async throws {
         let fileManager = FileManager.default
         let buildPath = context.package.directory.appending(".build/release").string
-        let appPath = buildPath + "/MyTime"
+        let appPath = buildPath + "/Hora"
         
         // 检查 release 构建是否存在
         guard fileManager.fileExists(atPath: appPath) else {

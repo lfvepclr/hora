@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "MyTime",
+    name: "Hora",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "MyTime", targets: ["MyTime"]),
-        .executable(name: "app", targets: ["MyTime"]),
+        .executable(name: "Hora", targets: ["Hora"]),
+        .executable(name: "app", targets: ["Hora"]),
         .executable(name: "dmg", targets: ["DMGBuilderExec"]),
         .plugin(name: "DMGBuilder", targets: ["DMGBuilder"])
     ],
@@ -16,7 +16,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "MyTime",
+            name: "Hora",
             dependencies: [
                 .product(name: "SwiftDate", package: "SwiftDate"),
                 .product(name: "LunarSwift", package: "lunar-swift"),
@@ -54,8 +54,8 @@ let package = Package(
         
         // 测试目标
         .testTarget(
-            name: "MyTimeTests",
-            dependencies: ["MyTime"],
+            name: "HoraTests",
+            dependencies: ["Hora"],
             resources: [
                 .copy("world.json"),
             ]

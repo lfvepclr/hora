@@ -1,4 +1,4 @@
-# MyTime
+# Hora
 
 一款 macOS 菜单栏应用，集时间、日历、世界时钟于一体。
 ![软件全图](./assets/软件全图.png)
@@ -50,7 +50,7 @@
 - **时辰吉凶**：12 个时辰（每时辰 2 小时）的吉凶指示
 - **宜忌网格**：宜/忌事项的可视化网格显示
 
-![黄历显示](/Users/spencer/workspace/idea/demo/mytime/assets/软件日历黄历.png)
+![黄历显示](./assets/软件日历黄历.png)
 
 ### 定时休息（RestNow）
 - **工作/休息循环**：可自定义工作和休息时长（工作 20/30/45/60 分钟，休息 5/10/20 分钟）
@@ -79,10 +79,10 @@
 ## 项目结构
 
 ```
-Sources/MyTime/
+Sources/Hora/
 ├── App/
 │   ├── AppDelegate.swift      # 菜单栏管理
-│   └── MyTimeApp.swift       # 应用入口
+│   └── HoraApp.swift         # 应用入口
 ├── Core/
 │   ├── Models/
 │   │   └── WorldCity.swift   # 城市数据模型
@@ -118,7 +118,7 @@ Sources/MyTime/
 | 命令 | 说明 |
 | --- | --- |
 | `swift run app` | 运行应用 |
-| `swift run MyTime` | 运行应用（完整名称） |
+| `swift run Hora` | 运行应用（完整名称） |
 | `swift run dmg` | 构建 release 版本并创建 DMG |
 
 ## 使用说明
@@ -128,7 +128,7 @@ Sources/MyTime/
 3. **切换月份**：使用箭头按钮切换，或点击"今天"返回
 4. **查看世界时钟**：在侧边栏选择"World Clock"
 5. **查看黄历**：在日历中选中日期，底部显示黄历概要
-6. **退出应用**：右键点击菜单栏图标，选择"Quit MyTime"
+6. **退出应用**：右键点击菜单栏图标，选择"Quit Hora"
 
 ## 开源许可
 

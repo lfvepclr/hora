@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MyTimeApp: App {
+struct HoraApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
@@ -84,7 +84,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("MyTime")
+        .navigationTitle("Hora")
     }
 }
 

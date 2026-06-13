@@ -1,7 +1,7 @@
 import Foundation
 
 /// 崩溃日志服务 - 捕获未处理异常和信号，写入本地日志文件
-/// 日志位置: ~/Library/Logs/MyTime/
+/// 日志位置: ~/Library/Logs/Hora/
 final class CrashLogService {
     static let shared = CrashLogService()
     
@@ -27,7 +27,7 @@ final class CrashLogService {
     
     private init() {
         let logDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/MyTime")
+            .appendingPathComponent("Library/Logs/Hora")
         self.logDirectory = logDir
         self.diagnosticLogFile = logDir.appendingPathComponent("diagnostic.log")
     }
@@ -63,7 +63,7 @@ final class CrashLogService {
         let timestamp = DateFormatter.iso8601Full.string(from: Date())
         let entry = "[\(timestamp)] \(message)"
         
-        print("[MyTime] \(entry)")
+        print("[Hora] \(entry)")
         
         if isFileReady {
             appendToFile(entry)
@@ -136,7 +136,7 @@ final class CrashLogService {
     private func generateDiagnosticHeader() -> String {
         """
         ========================================
-        MyTime Diagnostic Log
+        Hora Diagnostic Log
         Version: \(AppInfo.version) (\(AppInfo.build))
         OS: \(ProcessInfo.processInfo.operatingSystemVersionString)
         Bundle: \(Bundle.main.bundlePath)
@@ -193,7 +193,7 @@ final class CrashLogService {
         
         var content = """
         ========================================
-        MyTime Crash Report
+        Hora Crash Report
         ========================================
         Time: \(DateFormatter.iso8601Full.string(from: Date()))
         App Version: \(AppInfo.version) (\(AppInfo.build))
@@ -245,7 +245,7 @@ final class CrashLogService {
         
         var content = """
         ========================================
-        MyTime Crash Report (Signal)
+        Hora Crash Report (Signal)
         ========================================
         Time: \(DateFormatter.iso8601Full.string(from: Date()))
         App Version: \(AppInfo.version) (\(AppInfo.build))

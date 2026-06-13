@@ -10,7 +10,7 @@ final class OnboardingWindowManager {
 
     /// 检查是否需要显示引导（首次启动）
     var shouldShowOnboarding: Bool {
-        !UserDefaults.standard.bool(forKey: "mytime.hasCompletedOnboarding")
+        !UserDefaults.standard.bool(forKey: "hora.hasCompletedOnboarding")
     }
 
     /// 显示引导窗口
@@ -38,7 +38,7 @@ final class OnboardingWindowManager {
             object: window,
             queue: .main
         ) { _ in
-            UserDefaults.standard.set(true, forKey: "mytime.hasCompletedOnboarding")
+            UserDefaults.standard.set(true, forKey: "hora.hasCompletedOnboarding")
             Task { @MainActor in
                 OnboardingWindowManager.shared.window = nil
             }
@@ -79,7 +79,7 @@ struct OnboardingView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            Text("欢迎使用 MyTime")
+            Text("欢迎使用 Hora")
                 .font(.largeTitle.bold())
 
             Text("你的 macOS 时间管理助手")
@@ -143,17 +143,17 @@ struct OnboardingView: View {
 
             HStack(spacing: 16) {
                 Button("稍后设置") {
-                    UserDefaults.standard.set(true, forKey: "mytime.hasCompletedOnboarding")
+                    UserDefaults.standard.set(true, forKey: "hora.hasCompletedOnboarding")
                     OnboardingWindowManager.shared.dismiss()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
 
                 Button("开始使用") {
-                    UserDefaults.standard.set(workMinutes * 60, forKey: "mytime.restNow.workDuration")
-                    UserDefaults.standard.set(restMinutes * 60, forKey: "mytime.restNow.restDuration")
+                    UserDefaults.standard.set(workMinutes * 60, forKey: "hora.restNow.workDuration")
+                    UserDefaults.standard.set(restMinutes * 60, forKey: "hora.restNow.restDuration")
                     RestNowSession.shared.isEnabled = true
-                    UserDefaults.standard.set(true, forKey: "mytime.hasCompletedOnboarding")
+                    UserDefaults.standard.set(true, forKey: "hora.hasCompletedOnboarding")
                     OnboardingWindowManager.shared.dismiss()
                 }
                 .buttonStyle(.borderedProminent)

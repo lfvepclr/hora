@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import MyTime
+@testable import Hora
 
 // MARK: - Solar Position Calculator for Testing
 

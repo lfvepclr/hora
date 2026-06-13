@@ -1,5 +1,5 @@
 #!/bin/bash
-# MyTime Notarization Script
+# Hora Notarization Script
 # ===========================
 # Submits the DMG to Apple for notarization, staples the ticket,
 # and verifies the result.
@@ -23,7 +23,7 @@ APPLE_ID="${APPLE_ID:-your-apple-id@example.com}"
 TEAM_ID="${TEAM_ID:-YOUR_TEAM_ID}"
 APP_PASSWORD="${APP_PASSWORD:-your-app-specific-password}"
 
-DMG_PATH="dist/MyTime.dmg"
+DMG_PATH="dist/Hora.dmg"
 
 # Verify DMG exists
 if [[ ! -f "$DMG_PATH" ]]; then
@@ -33,7 +33,7 @@ if [[ ! -f "$DMG_PATH" ]]; then
 fi
 
 echo "╔══════════════════════════════════════╗"
-echo "║   MyTime Notarization Script         ║"
+echo "║   Hora Notarization Script         ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 

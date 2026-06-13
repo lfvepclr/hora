@@ -46,8 +46,8 @@ struct RestNowDurationPicker: View {
 /// 组合：Toggle + RestNowDurationPicker + 颜色设置 + 关闭按钮
 struct RestNowSettingsView: View {
     @ObservedObject var session = RestNowSession.shared
-    @AppStorage("mytime.restNow.workDuration") private var workDurationSeconds = 1200
-    @AppStorage("mytime.restNow.restDuration") private var restDurationSeconds = 300
+    @AppStorage("hora.restNow.workDuration") private var workDurationSeconds = 1200
+    @AppStorage("hora.restNow.restDuration") private var restDurationSeconds = 300
 
     let onDismiss: (() -> Void)?
 
