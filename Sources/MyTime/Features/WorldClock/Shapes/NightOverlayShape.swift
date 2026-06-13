@@ -83,98 +83,118 @@ struct NightOverlayShape: Shape {
     /// 构建平滑的夜晚区域路径（参考 world-daylight-map 的实现）
     private func buildNightPathSmooth(terminatorPoints: inout [CGPoint], northSun: Bool) -> Path {
         var path = Path()
-        
+
         guard terminatorPoints.count >= 3 else {
             return buildNightPathSimple(terminatorPoints: terminatorPoints, northSun: northSun)
         }
-        
+
         // world-daylight-map 的逻辑：
         // 路径从边缘开始 -> 沿昼夜分界线（使用basis曲线）-> 回到边缘 -> 封闭
-        
+        //
+        // 重要修复：latLonToMapPoint 未做 ±180° 经线 wraparound，
+        // 导致 terminator 两端的 X 坐标偏离 mapBounds 边界。
+        // 这里将两端 X 强制对齐到 mapBounds.minX/maxX（而不是截断到边界内），
+        // 使路径覆盖完整的 [mapBounds.minX, mapBounds.maxX] 宽度，
+        // 同时避免“水平+垂直”矩形硬切（与 24timezones.com 视觉效果一致）。
+
         if northSun {
             // 北极是白天，夜晚区域在南半球
-            // 路径：从左下角 -> 沿昼夜分界线（从左到右）-> 右下角 -> 回到左下角
-            
-            let startY = mapBounds.maxY
-            let endY = mapBounds.maxY
-            
-            // 开始点：地图左边缘，对应第一个昼夜分界线点的Y坐标
-            let firstPoint = terminatorPoints.first!
-            path.move(to: CGPoint(x: mapBounds.minX, y: startY))
-            path.addLine(to: CGPoint(x: mapBounds.minX, y: firstPoint.y))
-            
-            // 使用 Catmull-Rom 样条曲线绘制平滑的昼夜分界线
-            // Catmull-Rom 曲线通过控制点自然平滑通过
-            path.addLine(to: terminatorPoints[0])
-            
-            // 添加中间点形成平滑曲线
+            // 路径：底部 -> 沿昼夜分界线（从左到右）-> 底部 -> 回到起点
+
+            // 强制对齐首尾点到地图左右边界，确保覆盖完整宽度
+            let firstPoint = CGPoint(
+                x: mapBounds.minX,
+                y: terminatorPoints.first!.y
+            )
+            let lastPoint = CGPoint(
+                x: mapBounds.maxX,
+                y: terminatorPoints.last!.y
+            )
+
+            let boundaryY = mapBounds.maxY
+
+            // 起点：(firstPoint.x, 地图底部)，垂直向上到 firstPoint
+            path.move(to: CGPoint(x: firstPoint.x, y: boundaryY))
+            path.addLine(to: firstPoint)
+
+            // 沿 terminator 曲线到 lastPoint（用对齐后的 lastPoint 作为终点）
             for i in 1..<terminatorPoints.count {
                 let prev = terminatorPoints[max(0, i - 1)]
                 let curr = terminatorPoints[i]
                 let next = terminatorPoints[min(terminatorPoints.count - 1, i + 1)]
-                
+
                 // 使用三次贝塞尔曲线的控制点计算
                 // cp1 = prev + (curr - next) / 6
                 // cp2 = curr + (next - prev) / 6
                 // 这模拟了 Catmull-Rom 到 cubic Bezier 的转换
                 let tension: CGFloat = 0.3  // 控制曲线紧绷程度
-                
+
                 let cp1x = curr.x + (prev.x - curr.x) * tension
                 let cp1y = curr.y + (prev.y - curr.y) * tension
                 let cp2x = curr.x + (next.x - curr.x) * tension
                 let cp2y = curr.y + (next.y - curr.y) * tension
-                
+
+                // 最后一个点的目标使用对齐后的 lastPoint，确保曲线自然终止于右边界
+                let target: CGPoint = (i == terminatorPoints.count - 1) ? lastPoint : curr
+
                 path.addCurve(
-                    to: curr,
+                    to: target,
                     control1: CGPoint(x: cp1x, y: cp1y),
                     control2: CGPoint(x: cp2x, y: cp2y)
                 )
             }
-            
-            // 最后一个点到右边缘
-            let lastPoint = terminatorPoints.last!
-            path.addLine(to: CGPoint(x: mapBounds.maxX, y: lastPoint.y))
-            path.addLine(to: CGPoint(x: mapBounds.maxX, y: endY))
+
+            // 从 lastPoint 垂直向下到地图底部
+            path.addLine(to: CGPoint(x: lastPoint.x, y: boundaryY))
+            // closeSubpath 自动水平回到 (firstPoint.x, boundaryY) 完成闭合
             path.closeSubpath()
-            
+
         } else {
             // 北极是夜晚，夜晚区域在北半球
-            // 路径：从左上角 -> 沿昼夜分界线（从左到右）-> 右上角 -> 回到左上角
-            
-            let startY = mapBounds.minY
-            let endY = mapBounds.minY
-            
-            let firstPoint = terminatorPoints.first!
-            path.move(to: CGPoint(x: mapBounds.minX, y: startY))
-            path.addLine(to: CGPoint(x: mapBounds.minX, y: firstPoint.y))
-            
-            path.addLine(to: terminatorPoints[0])
-            
+            // 路径：顶部 -> 沿昼夜分界线（从左到右）-> 顶部 -> 回到起点
+
+            // 强制对齐首尾点到地图左右边界，确保覆盖完整宽度
+            let firstPoint = CGPoint(
+                x: mapBounds.minX,
+                y: terminatorPoints.first!.y
+            )
+            let lastPoint = CGPoint(
+                x: mapBounds.maxX,
+                y: terminatorPoints.last!.y
+            )
+
+            let boundaryY = mapBounds.minY
+
+            // 起点：(firstPoint.x, 地图顶部)，垂直向下到 firstPoint
+            path.move(to: CGPoint(x: firstPoint.x, y: boundaryY))
+            path.addLine(to: firstPoint)
+
             for i in 1..<terminatorPoints.count {
                 let prev = terminatorPoints[max(0, i - 1)]
                 let curr = terminatorPoints[i]
                 let next = terminatorPoints[min(terminatorPoints.count - 1, i + 1)]
-                
+
                 let tension: CGFloat = 0.3
-                
+
                 let cp1x = curr.x + (prev.x - curr.x) * tension
                 let cp1y = curr.y + (prev.y - curr.y) * tension
                 let cp2x = curr.x + (next.x - curr.x) * tension
                 let cp2y = curr.y + (next.y - curr.y) * tension
-                
+
+                let target: CGPoint = (i == terminatorPoints.count - 1) ? lastPoint : curr
+
                 path.addCurve(
-                    to: curr,
+                    to: target,
                     control1: CGPoint(x: cp1x, y: cp1y),
                     control2: CGPoint(x: cp2x, y: cp2y)
                 )
             }
-            
-            let lastPoint = terminatorPoints.last!
-            path.addLine(to: CGPoint(x: mapBounds.maxX, y: lastPoint.y))
-            path.addLine(to: CGPoint(x: mapBounds.maxX, y: endY))
+
+            // 从 lastPoint 垂直向上到地图顶部
+            path.addLine(to: CGPoint(x: lastPoint.x, y: boundaryY))
             path.closeSubpath()
         }
-        
+
         return path
     }
     
