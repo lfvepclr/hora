@@ -18,6 +18,7 @@ final class RestNowSession: NSObject, ObservableObject {
         static let workDuration = "hora.restNow.workDuration"
         static let restDuration = "hora.restNow.restDuration"
         static let isEnabled = "hora.restNow.isEnabled"
+        static let forcedRestSeconds = "hora.restNow.forcedRestSeconds"
     }
 
     // MARK: - Published Properties
@@ -51,6 +52,12 @@ final class RestNowSession: NSObject, ObservableObject {
     var restDuration: Int {
         let stored = UserDefaults.standard.integer(forKey: DefaultsKey.restDuration)
         return stored > 0 ? stored : 5 * 60
+    }
+
+    /// 强制休息时间（秒）：休息开始后经过此秒数才显示跳过按钮，默认 10 秒
+    var forcedRestSeconds: Int {
+        let stored = UserDefaults.standard.integer(forKey: DefaultsKey.forcedRestSeconds)
+        return stored > 0 ? stored : 10
     }
 
     var totalDuration: Int {

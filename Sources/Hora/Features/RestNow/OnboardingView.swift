@@ -21,7 +21,7 @@ final class OnboardingWindowManager {
         let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSWindow(contentViewController: hostingController)
-        window.setContentSize(NSSize(width: 500, height: 340))
+        window.setContentSize(NSSize(width: 500, height: 420))
         window.styleMask = [.titled, .closable]
         window.titlebarAppearsTransparent = true
         window.title = ""
@@ -61,6 +61,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var workMinutes = 30
     @State private var restMinutes = 10
+    @State private var forcedRestSeconds = 60
 
     var body: some View {
         Group {
@@ -70,7 +71,7 @@ struct OnboardingView: View {
                 restNowSettingPage
             }
         }
-        .frame(width: 500, height: 340)
+        .frame(width: 500, height: 420)
     }
 
     // MARK: - Page 1: Welcome
@@ -134,8 +135,9 @@ struct OnboardingView: View {
             RestNowDurationPicker(
                 workMinutes: $workMinutes,
                 restMinutes: $restMinutes,
+                forcedRestSeconds: $forcedRestSeconds,
                 workOptions: [20, 30, 45, 60],
-                restOptions: [5, 10, 20]
+                restOptions: [1, 3, 5, 10]
             )
             .padding(.horizontal, 40)
 
@@ -152,6 +154,7 @@ struct OnboardingView: View {
                 Button("开始使用") {
                     UserDefaults.standard.set(workMinutes * 60, forKey: "hora.restNow.workDuration")
                     UserDefaults.standard.set(restMinutes * 60, forKey: "hora.restNow.restDuration")
+                    UserDefaults.standard.set(forcedRestSeconds, forKey: "hora.restNow.forcedRestSeconds")
                     RestNowSession.shared.isEnabled = true
                     UserDefaults.standard.set(true, forKey: "hora.hasCompletedOnboarding")
                     OnboardingWindowManager.shared.dismiss()

@@ -7,6 +7,7 @@ import SwiftUI
 struct RestNowDurationPicker: View {
     @Binding var workMinutes: Int
     @Binding var restMinutes: Int
+    @Binding var forcedRestSeconds: Int
 
     let workOptions: [Int]
     let restOptions: [Int]
@@ -36,6 +37,25 @@ struct RestNowDurationPicker: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("强制休息时间")
+                    .font(.headline)
+                HStack(spacing: 8) {
+                    TextField("", value: $forcedRestSeconds, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                        .multilineTextAlignment(.trailing)
+                    Text("秒")
+                        .font(.subheadline)
+                    Stepper("", value: $forcedRestSeconds, in: 0...7200, step: 5)
+                        .labelsHidden()
+                    Spacer()
+                }
+                Text("休息开始后达到此秒数时显示跳过按钮")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -48,6 +68,7 @@ struct RestNowSettingsView: View {
     @ObservedObject var session = RestNowSession.shared
     @AppStorage("hora.restNow.workDuration") private var workDurationSeconds = 1200
     @AppStorage("hora.restNow.restDuration") private var restDurationSeconds = 300
+    @AppStorage("hora.restNow.forcedRestSeconds") private var forcedRestSeconds = 60
 
     let onDismiss: (() -> Void)?
 
@@ -64,6 +85,7 @@ struct RestNowSettingsView: View {
             RestNowDurationPicker(
                 workMinutes: workMinutesBinding,
                 restMinutes: restMinutesBinding,
+                forcedRestSeconds: $forcedRestSeconds,
                 workOptions: [20, 30, 45, 60],
                 restOptions: [1, 3, 5, 10]
             )
@@ -80,7 +102,7 @@ struct RestNowSettingsView: View {
             .padding(.bottom, 24)
         }
         .padding(.horizontal, 40)
-        .frame(width: 460, height: 460)
+        .frame(width: 460, height: 520)
         .onChange(of: workDurationSeconds) {
             if session.isEnabled { session.resetCycle() }
         }

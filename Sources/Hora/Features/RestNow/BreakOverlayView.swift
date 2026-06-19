@@ -43,8 +43,8 @@ struct BreakOverlayView: View {
                     .font(.system(size: 44, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
 
-                // Show skip button after 60 seconds of break to prevent accidental taps
-                if (session.restDuration - session.remainingSeconds) >= 60 {
+                // Show skip button after forced rest time to prevent accidental taps
+                if (session.restDuration - session.remainingSeconds) >= session.forcedRestSeconds {
                     Button {
                         session.skipBreak()
                     } label: {
