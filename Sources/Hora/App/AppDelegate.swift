@@ -4,7 +4,6 @@ import Combine
 
 // 通知名称：调整 popover 位置和大小
 extension Notification.Name {
-    static let adjustPopoverPosition = Notification.Name("adjustPopoverPosition")
     static let adjustPopoverSize = Notification.Name("adjustPopoverSize")
     static let resetPopoverContent = Notification.Name("resetPopoverContent")
 }
@@ -171,14 +170,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         
-        // 监听调整 popover 位置的通知
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAdjustPopoverPosition),
-            name: .adjustPopoverPosition,
-            object: nil
-        )
-        
         // 监听调整 popover 大小的通知
         NotificationCenter.default.addObserver(
             self,
@@ -279,6 +270,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // 检查点击是否在状态栏按钮上
             if event.window == self.statusItem.button?.window {
+                // 如果按住 Command 键，让系统处理拖拽（不拦截事件）
+                if event.modifierFlags.contains(.command) {
+                    return event
+                }
                 Task { @MainActor in
                     self.togglePopover()
                 }
@@ -530,32 +525,8 @@ struct AboutView: View {
         popover.contentSize = NSSize(width: 500, height: 380)
         NotificationCenter.default.post(name: .resetPopoverContent, object: nil)
     
-        // 计算初始窗口位置，确保能容纳世界时钟大小（不超出屏幕边界）
-        let buttonBounds = button.bounds
-        let screen = NSScreen.main
-        let screenFrame = screen?.visibleFrame ?? NSRect.zero
-        let maxSize = NSSize(width: 780, height: 380)
-            
         // 显示 popover
-        popover.show(relativeTo: buttonBounds, of: button, preferredEdge: .maxY)
-        
-        // 立即调整窗口位置，确保能容纳世界时钟大小（不超出屏幕右边界）
-        if let popoverWindow = popover.contentViewController?.view.window {
-            let windowFrame = popoverWindow.frame
-            let rightMargin: CGFloat = 20
-            let screenRightEdge = screenFrame.origin.x + screenFrame.width
-            let maxWindowRightEdge = windowFrame.origin.x + maxSize.width
-                
-            // 如果世界时钟大小的窗口右边缘超出屏幕，调整位置
-            if maxWindowRightEdge > screenRightEdge - rightMargin {
-                let overflow = maxWindowRightEdge - (screenRightEdge - rightMargin)
-                let newOrigin = CGPoint(
-                    x: windowFrame.origin.x - overflow - 10,
-                    y: windowFrame.origin.y
-                )
-                popoverWindow.setFrameOrigin(newOrigin)
-            }
-        }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
     
         // 激活应用并让 popover 获取焦点
         NSApp.activate(ignoringOtherApps: true)
@@ -578,16 +549,6 @@ struct AboutView: View {
         }
     }
     
-    // 处理调整 popover 位置的通知
-    @objc private func handleAdjustPopoverPosition(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let totalWidth = userInfo["totalWidth"] as? CGFloat else { return }
-    
-        Task { @MainActor [weak self] in
-            self?.adjustPopoverPosition(totalWidth: totalWidth)
-        }
-    }
-        
     // 处理调整 popover 大小的通知
     @objc private func handleAdjustPopoverSize(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
@@ -598,40 +559,31 @@ struct AboutView: View {
         }
     }
     
-    // 调整 popover 位置，确保完全显示在屏幕内
-    @MainActor
-    private func adjustPopoverPosition(totalWidth: CGFloat) {
-        guard popover.isShown,
-              let popoverWindow = popover.contentViewController?.view.window,
-              let screen = NSScreen.main else { return }
-    
-        let screenFrame = screen.visibleFrame
-        let windowFrame = popoverWindow.frame
-    
-        // 计算新的右边缘位置
-        let newRightEdge = windowFrame.origin.x + totalWidth
-        let screenRightEdge = screenFrame.origin.x + screenFrame.width
-    
-        // 如果超出屏幕右边界，计算需要左移的距离
-        // 确保距离屏幕右边至少 20px
-        let rightMargin: CGFloat = 20
-        if newRightEdge > screenRightEdge - rightMargin {
-            let overflow = newRightEdge - (screenRightEdge - rightMargin)
-            let newOrigin = CGPoint(
-                x: windowFrame.origin.x - overflow - 10,  // 左移超出距离 + 10px 额外边距
-                y: windowFrame.origin.y
-            )
-            popoverWindow.setFrameOrigin(newOrigin)
-        }
-    }
-    
-    // 调整 popover 大小（位置已在打开时预设好）
+    // 调整 popover 大小，并在窗口溢出屏幕右侧时左移避让
     @MainActor
     private func adjustPopoverSize(width: CGFloat) {
         guard popover.isShown else { return }
-        
-        // 直接设置新的大小
         popover.contentSize = NSSize(width: width, height: 380)
+        // 等待 NSPopover 按新尺寸重新布局后，再左移避溢出
+        DispatchQueue.main.async { [weak self] in
+            self?.shiftPopoverLeftIfNeeded()
+        }
+    }
+    
+    /// 窗口右边缘超出屏幕可视区域时，整体左移以补足缺口
+    @MainActor
+    private func shiftPopoverLeftIfNeeded() {
+        guard popover.isShown,
+              let window = popover.contentViewController?.view.window,
+              let screen = window.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        let frame = window.frame
+        let overflow = frame.maxX - visible.maxX
+        if overflow > 0 {
+            var origin = frame.origin
+            origin.x = max(visible.minX, origin.x - overflow)
+            window.setFrameOrigin(origin)
+        }
     }
 }
 

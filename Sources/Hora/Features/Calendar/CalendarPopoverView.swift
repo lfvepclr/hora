@@ -36,12 +36,6 @@ struct CalendarPopoverView: View {
                                 }
                             },
                             onWorldClockTap: {
-                                // 先调整窗口大小，再显示世界时钟
-                                NotificationCenter.default.post(
-                                    name: .adjustPopoverSize,
-                                    object: nil,
-                                    userInfo: ["width": 780]
-                                )
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     showWorldClock = true
                                 }
@@ -71,8 +65,25 @@ struct CalendarPopoverView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .resetPopoverContent)) { _ in
+            viewModel.currentDate = Date()
+            viewModel.selectedDate = Date()
             showWorldClock = false
             showAlmanacDetail = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            // 跨天时如果还在显示"今天"的月份，则更新到新日期
+            let calendar = Calendar.current
+            if calendar.isDate(viewModel.currentDate, inSameDayAs: Date()) == false,
+               calendar.isDate(viewModel.currentDate, equalTo: calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date(), toGranularity: .month) {
+                viewModel.currentDate = Date()
+                viewModel.selectedDate = Date()
+            }
+        }
+        .onChange(of: showAlmanacDetail) { _ in
+            updatePopoverWidth()
+        }
+        .onChange(of: showWorldClock) { _ in
+            updatePopoverWidth()
         }
     }
     
@@ -145,6 +156,16 @@ struct CalendarPopoverView: View {
     
     private func goToToday() {
         viewModel.currentDate = Date()
+    }
+    
+    // 根据当前展开状态通知 AppDelegate 调整 popover 宽度
+    private func updatePopoverWidth() {
+        let width: CGFloat = (showWorldClock || showAlmanacDetail) ? 780 : 500
+        NotificationCenter.default.post(
+            name: .adjustPopoverSize,
+            object: nil,
+            userInfo: ["width": width]
+        )
     }
 }
 

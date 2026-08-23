@@ -165,6 +165,11 @@ struct CompactDayCell: View {
             return Color.gray.opacity(0.35)
         }
         
+        // 今天：白色（蓝色背景上）
+        if isToday {
+            return .white
+        }
+        
         // 节假日：红色
         if isHoliday {
             return Color(red: 0.9, green: 0.2, blue: 0.2)
@@ -186,6 +191,11 @@ struct CompactDayCell: View {
     
     // 背景颜色 - 百度日历风格
     private var backgroundColor: Color {
+        // 今天：蓝色背景（百度日历风格）
+        if isToday {
+            return Color(red: 77/255, green: 111/255, blue: 239/255)
+        }
+        
         // 节假日：浅红色背景 #FFEBEE（更深的粉色）
         if isHoliday {
             return Color(red: 1, green: 0.92, blue: 0.93)
@@ -196,8 +206,8 @@ struct CompactDayCell: View {
             return Color(red: 1, green: 0.92, blue: 0.93)
         }
         
-        // 选中：浅蓝色背景（今天不叠加选中背景，避免亮蓝色外框）
-        if isSelected && !isToday {
+        // 选中：浅蓝色背景
+        if isSelected {
             return Color(red: 0.9, green: 0.95, blue: 1)
         }
 
@@ -212,6 +222,11 @@ struct CompactDayCell: View {
         // 非当前月份：浅灰色
         if !isCurrentMonth {
             return Color.gray.opacity(0.35)
+        }
+        
+        // 今天：白色（蓝色背景上）
+        if isToday {
+            return .white
         }
         
         // 节假日名称：红色
