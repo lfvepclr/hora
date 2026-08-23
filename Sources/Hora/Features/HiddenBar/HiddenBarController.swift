@@ -72,22 +72,33 @@ final class HiddenBarController {
     // MARK: - Setup
 
     private func setupUI() {
-        // 设置 Preferred Position，确保状态项在屏幕内（裸二进制运行时 macOS 不会自动分配位置）
-        let screenWidth = NSScreen.main?.frame.width ?? 1728
-        UserDefaults.standard.set(screenWidth - 160, forKey: "NSStatusItem Preferred Position hora.hiddenBar.expandCollapse")
-        UserDefaults.standard.set(screenWidth - 190, forKey: "NSStatusItem Preferred Position hora.hiddenBar.separate")
-        UserDefaults.standard.set(screenWidth - 220, forKey: "NSStatusItem Preferred Position hora.hiddenBar.alwaysHidden")
-
-        btnSeparate.button?.image = Self.separatorLineImage
-        btnSeparate.autosaveName = "hora.hiddenBar.separate"
-
+        // ⚠️ lazy 属性的访问顺序决定菜单栏位置（先创建的在右侧）
+        // 必须先访问 btnExpandCollapse，使 chevron 在 separator 右侧
         if let button = btnExpandCollapse.button {
             button.image = Self.collapseImage
             button.target = self
             button.action = #selector(buttonPressed(sender:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        btnExpandCollapse.autosaveName = "hora.hiddenBar.expandCollapse"
+
+        btnSeparate.button?.image = Self.separatorLineImage
+        // 设置 menu 使 separator 可交互（与原版 Hidden Bar 一致）
+        let separateMenu = NSMenu()
+        let separateMenuItem = NSMenuItem(
+            title: "隐藏栏设置…",
+            action: #selector(openSettingsHint),
+            keyEquivalent: ""
+        )
+        separateMenuItem.target = self
+        separateMenu.addItem(separateMenuItem)
+        btnSeparate.menu = separateMenu
+
+        btnSeparate.autosaveName = "hora_hiddenBar_separate"
+        btnExpandCollapse.autosaveName = "hora_hiddenBar_expandCollapse"
+    }
+
+    @objc private func openSettingsHint() {
+        showUsageHint()
     }
 
     private func restoreRemovedStatusItems() {
@@ -195,7 +206,7 @@ final class HiddenBarController {
             let item = NSStatusBar.system.statusItem(withLength: btnAlwaysHiddenLength)
             item.button?.image = Self.separatorLineImage
             item.button?.appearsDisabled = true
-            item.autosaveName = "hora.hiddenBar.alwaysHidden"
+            item.autosaveName = "hora_hiddenBar_alwaysHidden"
             item.isVisible = true
             btnAlwaysHidden = item
         } else {
@@ -250,7 +261,11 @@ final class HiddenBarController {
     // MARK: - Button Handler
 
     @objc private func buttonPressed(sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else { return }
+        // currentEvent 为 nil（AX 点击等场景）时默认执行折叠/展开
+        guard let event = NSApp.currentEvent else {
+            expandCollapseIfNeeded()
+            return
+        }
         let isOption = event.modifierFlags.contains(.option)
 
         if event.type == .leftMouseUp && !isOption {
@@ -277,6 +292,15 @@ final class HiddenBarController {
         )
         toggleItem.target = self
         menu.addItem(toggleItem)
+
+        // 使用说明
+        let hintItem = NSMenuItem(
+            title: "使用说明…",
+            action: #selector(showUsageHint),
+            keyEquivalent: ""
+        )
+        hintItem.target = self
+        menu.addItem(hintItem)
 
         menu.addItem(.separator())
 
@@ -338,6 +362,29 @@ final class HiddenBarController {
     }
 
     // MARK: - Menu Actions
+
+    /// 显示使用说明弹窗（解释如何通过 Cmd+拖拽设置哪些图标隐藏/显示）
+    @objc private func showUsageHint() {
+        let alert = NSAlert()
+        alert.messageText = "隐藏栏使用说明"
+        alert.informativeText = """
+        菜单栏中会出现一个竖线分隔符和一个折叠按钮：
+
+        • 折叠按钮（〈）：点击展开/折叠左侧图标
+        • 竖线分隔符（|）：隐藏区域的分界线
+
+        设置哪些图标隐藏：
+
+        按住 Command 键，拖动菜单栏图标：
+        • 拖到竖线分隔符左侧 → 折叠时隐藏
+        • 拖到竖线分隔符右侧 → 始终显示
+
+        隐藏的分界原理：折叠时，分隔符左侧的图标会被推到屏幕外；展开时恢复显示。
+        """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "知道了")
+        alert.runModal()
+    }
 
     @objc private func menuToggleCollapse() {
         expandCollapseIfNeeded()

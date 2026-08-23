@@ -71,8 +71,13 @@ enum HiddenBarPreferences {
         }
     }
 
-    /// 将开机启动状态与 SMAppService 同步
+    /// 将开机启动状态与 SMAppService 同步（仅限 .app bundle，裸二进制无法注册）
     static func syncAutoStart(_ enabled: Bool) {
+        // SMAppService 要求正规 .app bundle，裸二进制（swift run）下会报 Operation not permitted
+        guard Bundle.main.bundleURL.pathExtension == "app" else {
+            fputs("[Hora] AutoStart skipped: not running from .app bundle\n", stderr)
+            return
+        }
         do {
             if enabled {
                 if SMAppService.mainApp.status != .enabled {
