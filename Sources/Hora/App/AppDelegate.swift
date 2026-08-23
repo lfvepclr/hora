@@ -90,6 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private var dateRefreshTimer: Timer?
     private var restNowCancellables = Set<AnyCancellable>()
+    private var hiddenBarController: HiddenBarController?
     
     // 懒初始化 popover（复用，避免每次重新创建）
     private lazy var popover: NSPopover = {
@@ -132,6 +133,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 设置点击事件
         setupClickHandler()
         logger.log("Click handler set up")
+        
+        // 启动菜单栏折叠功能
+        hiddenBarController = HiddenBarController()
+        hiddenBarController?.onContextMenu = { [weak self] in
+            guard let self, let button = self.statusItem.button else { return }
+            self.showContextMenu()
+        }
+        HiddenBarPreferences.syncAutoStart(HiddenBarPreferences.isAutoStart)
+        logger.log("Hidden Bar controller set up")
         
         // 每分钟更新一次图标（日期变化时）
         dateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
@@ -387,6 +397,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let menu = NSMenu()
         
+        // 开机启动
+        let autoStartItem = NSMenuItem(
+            title: "开机启动",
+            action: #selector(toggleAutoStart),
+            keyEquivalent: ""
+        )
+        autoStartItem.target = self
+        autoStartItem.state = HiddenBarPreferences.isAutoStart ? .on : .off
+        menu.addItem(autoStartItem)
+        
+        menu.addItem(.separator())
+        
+        // 隐藏栏
+        if let hiddenBarSubmenu = hiddenBarController?.buildSubmenu() {
+            let hiddenBarItem = NSMenuItem(
+                title: "隐藏栏",
+                action: nil,
+                keyEquivalent: ""
+            )
+            hiddenBarItem.submenu = hiddenBarSubmenu
+            menu.addItem(hiddenBarItem)
+        }
+        
+        menu.addItem(.separator())
+        
         // 定时休息
         let restNowItem = NSMenuItem(
             title: "定时休息",
@@ -432,6 +467,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func showRestNowSettings() {
         RestNowSettingsWindowManager.shared.show()
+    }
+    
+    @objc private func toggleAutoStart() {
+        HiddenBarPreferences.isAutoStart.toggle()
     }
     
     @objc private func showAbout() {
