@@ -121,6 +121,20 @@ Sources/Hora/
 | `swift run Hora` | 运行应用（完整名称） |
 | `swift run dmg` | 构建 release 版本并创建 DMG |
 
+## 安装
+
+1. 下载 `dist/Hora.dmg`，双击挂载
+2. 将 `Hora.app` 拖入 `Applications` 文件夹
+3. 首次打开时如提示"已损坏，无法打开"或没有任何反应，请执行以下命令移除隔离属性：
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Hora.app
+   ```
+
+   之后即可正常双击运行。
+
+> **重要说明**：本应用使用 Ad-Hoc 签名，未经 Apple Developer 证书公证，因此 macOS 的 Gatekeeper 会阻止其启动。上述 `xattr` 命令会移除文件的 `com.apple.quarantine` 隔离属性，从而绕过该校验。该操作仅作用于本应用本身，不影响系统其他文件。
+
 ## 使用说明
 
 1. **启动**：应用作为菜单栏程序运行（无 Dock 图标）
