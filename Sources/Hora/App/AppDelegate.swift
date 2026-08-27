@@ -89,7 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }()
     
     private var dateRefreshTimer: Timer?
-    private var restNowCancellables = Set<AnyCancellable>()
     private var hiddenBarController: HiddenBarController?
     
     // 懒初始化 popover（复用，避免每次重新创建）
@@ -97,11 +96,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let p = NSPopover()
         p.behavior = .semitransient
         p.contentSize = NSSize(width: 500, height: 380)
-        let contentView = CalendarPopoverView()
-        p.contentViewController = NSHostingController(rootView: contentView)
+        p.contentViewController = Self.makePopoverContent()
         p.delegate = self
         return p
     }()
+    
+    /// 构建 popover 内容（首次与闲置释放后重建共用）
+    private static func makePopoverContent() -> NSHostingController<CalendarPopoverView> {
+        NSHostingController(rootView: CalendarPopoverView())
+    }
+    
+    /// popover 关闭后延迟释放视图缓存的定时任务
+    private var popoverUnloadWorkItem: DispatchWorkItem?
     
     // MARK: - Lifecycle
     
@@ -134,14 +140,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupClickHandler()
         logger.log("Click handler set up")
         
-        // 启动菜单栏折叠功能
-        hiddenBarController = HiddenBarController()
-        hiddenBarController?.onContextMenu = { [weak self] in
-            guard let self, let button = self.statusItem.button else { return }
-            self.showContextMenu()
+        // 启动菜单栏折叠功能（延迟创建：等日期项与系统项先落定槽位，让隐藏栏两项落在更靠近日历的位置）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            self.hiddenBarController = HiddenBarController()
+            self.hiddenBarController?.onContextMenu = { [weak self] in
+                guard let self else { return }
+                self.showContextMenu()
+            }
+            self.hiddenBarController?.onOpenWizard = {
+                OnboardingWindowManager.shared.show(page: OnboardingWindowManager.Page.hiddenBar)
+            }
+            CrashLogService.shared.log("Hidden Bar controller set up (delayed)")
         }
         HiddenBarPreferences.syncAutoStart(HiddenBarPreferences.isAutoStart)
-        logger.log("Hidden Bar controller set up")
+        logger.log("Hidden Bar controller scheduled")
         
         // 每分钟更新一次图标（日期变化时）
         dateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
@@ -150,14 +163,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        // 后台预加载世界地图数据（约1MB内存，换取秒开体验）
-        logger.log("Starting WorldMapDataService preload")
-        Task.detached(priority: .userInitiated) {
-            await WorldMapDataService.shared.ensureLoaded()
-            await MainActor.run {
-                logger.log("WorldMapDataService preload completed")
-            }
-        }
+        // 世界地图数据改为惰性加载：首次打开世界时钟时才解析（见 WorldClockPopupView.onAppear），降低静置内存
+        logger.log("WorldMapDataService lazy load scheduled (on world clock open)")
         
         // 后台预热当月日历数据（农历+节假日），确保首次打开0延迟
         logger.log("Starting calendar data prewarm")
@@ -316,23 +323,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     // MARK: - RestNow Subscription
-    
+
     @MainActor
     private func setupRestNowSubscription() {
+        observeRestNowChanges()
+    }
+
+    /// @Observable 追踪：session 或颜色变化时重绘菜单栏进度环。
+    /// withObservationTracking 的 onChange 为单次触发，故回调内重新注册。
+    @MainActor
+    private func observeRestNowChanges() {
         let session = RestNowSession.shared
-        Publishers.CombineLatest3(session.$isEnabled, session.$remainingSeconds, session.$phase)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isEnabled, _, phase in
-                guard let self = self else { return }
-                if isEnabled {
-                    let progress = session.progress
-                    self.statusItem.button?.image = self.createProgressRingImage(progress: progress, phase: phase)
-                    self.statusItem.button?.imagePosition = .imageLeading
-                } else {
-                    self.statusItem.button?.image = nil
-                }
+        let colors = RestNowColorSettings.shared
+        withObservationTracking {
+            _ = session.isEnabled
+            _ = session.phase
+            _ = session.remainingSeconds
+            _ = session.isPaused
+            _ = colors.workColor
+            _ = colors.restColor
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.updateRestNowIcon()
+                self.observeRestNowChanges()
             }
-            .store(in: &restNowCancellables)
+        }
+        updateRestNowIcon()
+    }
+
+    /// 根据会话状态绘制菜单栏图标（进度环/无图）
+    @MainActor
+    private func updateRestNowIcon() {
+        let session = RestNowSession.shared
+        if session.isEnabled {
+            let progress = session.progress
+            let phase = session.phase
+            statusItem.button?.image = createProgressRingImage(progress: progress, phase: phase)
+            statusItem.button?.imagePosition = .imageLeading
+        } else {
+            statusItem.button?.image = nil
+        }
     }
     
     // MARK: - Progress Ring Image
@@ -560,6 +591,9 @@ struct AboutView: View {
     private func showPopover() {
         guard let button = statusItem.button else { return }
     
+        // 取消待执行的视图缓存释放
+        popoverUnloadWorkItem?.cancel()
+    
         // 重置到日历视图
         popover.contentSize = NSSize(width: 500, height: 380)
         NotificationCenter.default.post(name: .resetPopoverContent, object: nil)
@@ -638,7 +672,16 @@ extension AppDelegate: NSPopoverDelegate {
     }
     
     func popoverDidClose(_ notification: Notification) {
-        // 不再清空缓存：保持缓存温热确保下次秒开
-        // 缓存自身的 maxCacheSize 限制已提供内存保护
+        // 不再立即清缓存：保持缓存温热确保下次秒开
+        // 但闲置 3 分钟后释放 SwiftUI 视图树（世界时钟视图缓存约 +40MB），
+        // 让常驻内存回落到静置水平；代价是闲置后的首次打开需重建视图（约 1 秒）
+        popoverUnloadWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.popover.isShown else { return }
+            self.popover.contentViewController = Self.makePopoverContent()
+            CrashLogService.shared.log("Popover view cache released after 3min idle")
+        }
+        popoverUnloadWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 180, execute: work)
     }
 }

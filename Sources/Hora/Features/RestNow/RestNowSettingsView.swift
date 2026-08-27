@@ -65,7 +65,8 @@ struct RestNowDurationPicker: View {
 /// 定时休息配置面板视图
 /// 组合：Toggle + RestNowDurationPicker + 颜色设置 + 关闭按钮
 struct RestNowSettingsView: View {
-    @ObservedObject var session = RestNowSession.shared
+    /// @Bindable：@Observable 类型的 $session 绑定投影
+    @Bindable var session = RestNowSession.shared
     @AppStorage("hora.restNow.workDuration") private var workDurationSeconds = 1200
     @AppStorage("hora.restNow.restDuration") private var restDurationSeconds = 300
     @AppStorage("hora.restNow.forcedRestSeconds") private var forcedRestSeconds = 60

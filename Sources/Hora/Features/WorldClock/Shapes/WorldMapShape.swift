@@ -47,21 +47,25 @@ struct CountryShape: Shape {
 
 // MARK: - World Map View
 
-/// 世界地图视图 - 使用预渲染位图显示（零Shape开销）
+/// 世界地图视图 - Canvas 绘制预构建的矢量路径（内存友好的矢量渲染，无损缩放）
 struct WorldMapView: View {
     let mapService: WorldMapDataService
     let scale: CGFloat
     let offset: CGSize
     
     var body: some View {
-        if let nsImage = mapService.renderedMapImage {
-            // 使用预渲染位图，零Shape计算开销
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipped()
+        if let mapPath = mapService.cachedMapPath {
+            Canvas { context, _ in
+                // 视图坐标 = 地图坐标 × scale + offset
+                let transform = CGAffineTransform(a: scale, b: 0, c: 0, d: scale,
+                                                  tx: offset.width, ty: offset.height)
+                let viewPath = Path(mapPath).applying(transform)
+                context.fill(viewPath, with: .color(Color(red: 0.56, green: 0.77, blue: 0.97)))
+                context.stroke(viewPath, with: .color(Color(red: 0.35, green: 0.55, blue: 0.78)),
+                               lineWidth: 0.5 / scale)
+            }
         } else if !mapService.countries.isEmpty {
-            // 回退：数据还未预渲染时使用Shape
+            // 回退：路径还未构建时使用 Shape
             WorldMapShape(countries: mapService.countries, scale: scale, offset: offset)
                 .fill(Color(red: 0.56, green: 0.77, blue: 0.97))
                 .overlay(

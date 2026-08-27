@@ -1,15 +1,16 @@
 import SwiftUI
 import Cocoa
 
-/// 定时休息颜色配置管理
+/// 定时休息颜色配置管理（@Observable 替代 ObservableObject）
 @MainActor
-final class RestNowColorSettings: ObservableObject {
+@Observable
+final class RestNowColorSettings {
     static let shared = RestNowColorSettings()
 
-    @Published var workColor: NSColor {
+    var workColor: NSColor {
         didSet { saveColor(workColor, forKey: "hora.restNow.workCircleColor") }
     }
-    @Published var restColor: NSColor {
+    var restColor: NSColor {
         didSet { saveColor(restColor, forKey: "hora.restNow.restCircleColor") }
     }
 
@@ -32,7 +33,7 @@ final class RestNowColorSettings: ObservableObject {
 // MARK: - Color Settings View
 
 struct RestNowColorSettingsView: View {
-    @ObservedObject var settings = RestNowColorSettings.shared
+    var settings = RestNowColorSettings.shared
 
     private let presetColors: [NSColor] = [
         .systemTeal, .systemBlue, .systemGreen, .systemIndigo,

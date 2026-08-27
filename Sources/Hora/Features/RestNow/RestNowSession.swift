@@ -1,10 +1,11 @@
 import Foundation
 import AppKit
-import Combine
 import CoreGraphics
 
+/// 定时休息会话（@Observable 替代 ObservableObject/Combine，减少订阅开销）
 @MainActor
-final class RestNowSession: NSObject, ObservableObject {
+@Observable
+final class RestNowSession: NSObject {
     enum Phase: Sendable {
         case work
         case rest
@@ -21,12 +22,12 @@ final class RestNowSession: NSObject, ObservableObject {
         static let forcedRestSeconds = "hora.restNow.forcedRestSeconds"
     }
 
-    // MARK: - Published Properties
+    // MARK: - Observable Properties
 
-    @Published private(set) var phase: Phase = .work
-    @Published private(set) var remainingSeconds: Int = 0
-    @Published private(set) var isPaused: Bool = false
-    @Published var isEnabled: Bool {
+    private(set) var phase: Phase = .work
+    private(set) var remainingSeconds: Int = 0
+    private(set) var isPaused: Bool = false
+    var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: DefaultsKey.isEnabled)
             if isEnabled {

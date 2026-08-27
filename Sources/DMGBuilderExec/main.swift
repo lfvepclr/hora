@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Version Constants (keep in sync with AppInfo.swift)
 private let appName = "Hora"
-private let appVersion = "6.1.0"
+private let appVersion = "7.0.0"
 private let appBuild = "1"
 private let bundleIdentifier = "com.hora.app"
 private let minimumSystemVersion = "14.0"

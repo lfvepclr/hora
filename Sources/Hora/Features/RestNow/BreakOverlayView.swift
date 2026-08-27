@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BreakOverlayView: View {
-    @ObservedObject var session: RestNowSession
+    var session: RestNowSession
 
     var body: some View {
         ZStack {

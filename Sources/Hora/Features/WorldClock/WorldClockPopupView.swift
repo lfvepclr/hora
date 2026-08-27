@@ -21,6 +21,8 @@ struct WorldClockPopupView: View {
         }
         .onAppear {
             viewModel.startTimer()
+            // 打开时确保地图数据就绪（幂等；启动时不再预加载，降低静置内存）
+            Task { await WorldMapDataService.shared.ensureLoaded() }
         }
         .onDisappear {
             viewModel.stopTimer()

@@ -6,9 +6,14 @@ import AppKit
 // MARK: - World Map Data Service
 
 /// 世界地图数据服务 - 管理地图数据加载和坐标转换
+/// @Observable：世界时钟打开时惰性加载（ensureLoaded），数据就绪后自动刷新视图
 @MainActor
+@Observable
 class WorldMapDataService {
     static let shared = WorldMapDataService()
+    
+    /// 共享 JSON 解码器（无状态线程安全，nonisolated 供后台解码线程访问）
+    nonisolated(unsafe) private static let jsonDecoder = JSONDecoder()
     
     // MARK: - Properties
     
@@ -18,14 +23,12 @@ class WorldMapDataService {
     /// 坐标转换参数
     private(set) var transform: HCTransform?
     
-    /// 已处理的国家路径数据（包含Path坐标，渲染完位图后释放）
+    /// 已处理的国家路径数据（矢量绘制的数据源，保留在内存中约 1-2MB）
     private(set) var countries: [CountryPathData] = []
     
-    /// 预渲染的地图位图（替代Shape实时渲染，大幅降低内存和CPU开销）
-    private(set) var renderedMapImage: NSImage?
-    
-    /// 轻量级国家命中测试数据（仅保留boundingBox和简化polygon用于交互）
-    private(set) var countryHitData: [CountryHitData] = []
+    /// 预构建的整幅地图矢量路径（原始投影坐标，绘制时按目标尺寸变换）。
+    /// ⚠️ 替代旧版 36MB 的 NSImage 位图预渲染，内存降 20 倍以上且矢量无损缩放
+    private(set) var cachedMapPath: CGPath?
     
     /// 国家时区映射
     private(set) var countryTimezones: [String: CountryTimezoneInfo] = [:]
@@ -62,8 +65,8 @@ class WorldMapDataService {
         await loadMapData()
         await loadCountryTimezones()
         
-        // 预渲染地图位图并释放原始路径数据
-        preRenderMapImage()
+        // 预构建矢量路径（不再渲染位图）
+        buildMapPath()
         
         isLoaded = true
     }
@@ -71,101 +74,36 @@ class WorldMapDataService {
     /// 释放地图数据（世界时钟关闭时调用）
     func unload() {
         countries = []
-        countryHitData = []
+        cachedMapPath = nil
         countryTimezones = [:]
         mapBounds = .null
         transform = nil
         yMid = 0
-        renderedMapImage = nil
         isLoaded = false
     }
     
-    // MARK: - Pre-render Map Image
+    // MARK: - Build Vector Path
     
-    /// 预渲染地图为NSImage位图，然后释放pathPoints节省内存
-    private func preRenderMapImage() {
+    /// 预构建整幅地图的 CGPath（约 1-2MB，仅点坐标数据）
+    private func buildMapPath() {
         guard !countries.isEmpty, mapBounds != .null else { return }
         
-        // 固定渲染分辨率（2x Retina）
-        let renderWidth: CGFloat = 1560
-        let renderHeight: CGFloat = 760
-        
-        // 计算渲染用的scale和offset
-        let scaleX = renderWidth / mapBounds.width
-        let scaleY = renderHeight / mapBounds.height
-        let renderScale = min(scaleX, scaleY)
-        
-        let scaledWidth = mapBounds.width * renderScale
-        let scaledHeight = mapBounds.height * renderScale
-        let renderOffset = CGSize(
-            width: (renderWidth - scaledWidth) / 2 - mapBounds.minX * renderScale,
-            height: (renderHeight - scaledHeight) / 2 - mapBounds.minY * renderScale
-        )
-        
-        // 使用CGContext渲染位图
-        let image = NSImage(size: NSSize(width: renderWidth, height: renderHeight))
-        image.lockFocus()
-        
-        guard let ctx = NSGraphicsContext.current?.cgContext else {
-            image.unlockFocus()
-            return
-        }
-        
-        // 填充色
-        let fillColor = CGColor(red: 0.56, green: 0.77, blue: 0.97, alpha: 1.0)
-        let strokeColor = CGColor(red: 0.35, green: 0.55, blue: 0.78, alpha: 1.0)
-        
-        // 翻转坐标系（NSImage的坐标系是flipped的）
-        ctx.translateBy(x: 0, y: renderHeight)
-        ctx.scaleBy(x: 1, y: -1)
-        
+        let path = CGMutablePath()
         for country in countries {
-            let path = CGMutablePath()
             for polygon in country.pathPoints {
                 guard let first = polygon.first else { continue }
-                let scaledFirst = CGPoint(
-                    x: first.x * renderScale + renderOffset.width,
-                    y: first.y * renderScale + renderOffset.height
-                )
-                path.move(to: scaledFirst)
-                for point in polygon.dropFirst() {
-                    path.addLine(to: CGPoint(
-                        x: point.x * renderScale + renderOffset.width,
-                        y: point.y * renderScale + renderOffset.height
-                    ))
+                path.move(to: first)
+                var iterator = polygon.makeIterator()
+                iterator.next() // 跳过 first
+                while let point = iterator.next() {
+                    path.addLine(to: point)
                 }
                 path.closeSubpath()
             }
-            
-            // 填充
-            ctx.setFillColor(fillColor)
-            ctx.addPath(path)
-            ctx.fillPath()
-            
-            // 描边
-            ctx.setStrokeColor(strokeColor)
-            ctx.setLineWidth(0.5)
-            ctx.addPath(path)
-            ctx.strokePath()
         }
+        cachedMapPath = path
         
-        image.unlockFocus()
-        self.renderedMapImage = image
-        
-        // 保存轻量级命中测试数据，然后释放原始pathPoints
-        self.countryHitData = countries.map { country in
-            CountryHitData(
-                id: country.id,
-                name: country.name,
-                boundingBox: country.boundingBox,
-                pathPoints: country.pathPoints
-            )
-        }
-        
-        // 释放重量级的原始countries数组（pathPoints占大量内存）
-        self.countries = []
-        
-        CrashLogService.shared.log("Pre-rendered map image (\(Int(renderWidth))x\(Int(renderHeight))), released pathPoints")
+        CrashLogService.shared.log("Built map vector path (\(countries.count) countries)")
     }
     
     // MARK: - Data Loading
@@ -205,8 +143,7 @@ class WorldMapDataService {
         let loadedMapData = await Task.detached(priority: .userInitiated) { () -> WorldMapData? in
             do {
                 let data = try Data(contentsOf: fileURL)
-                let decoder = JSONDecoder()
-                return try decoder.decode(WorldMapData.self, from: data)
+                return try Self.jsonDecoder.decode(WorldMapData.self, from: data)
             } catch {
                 logger.logError("Error loading world.json: \(error)")
                 return nil
@@ -250,8 +187,7 @@ class WorldMapDataService {
         let timezoneInfos = await Task.detached(priority: .userInitiated) { () -> [CountryTimezoneInfo]? in
             do {
                 let data = try Data(contentsOf: fileURL)
-                let decoder = JSONDecoder()
-                return try decoder.decode([CountryTimezoneInfo].self, from: data)
+                return try Self.jsonDecoder.decode([CountryTimezoneInfo].self, from: data)
             } catch {
                 logger.logError("Error loading countryTimezones.json: \(error)")
                 return nil
@@ -452,52 +388,6 @@ class WorldMapDataService {
     /// 获取国家的时区信息
     func getTimezoneInfo(for countryCode: String) -> CountryTimezoneInfo? {
         return countryTimezones[countryCode]
-    }
-    
-    /// 根据位置查找国家
-    func findCountry(at point: CGPoint) -> CountryHitData? {
-        // 先用边界框过滤
-        let candidates = countryHitData.filter { $0.boundingBox.contains(point) }
-        
-        // 再用点在多边形检测
-        for country in candidates {
-            if isPointInCountryHit(point, country: country) {
-                return country
-            }
-        }
-        
-        return nil
-    }
-    
-    /// 点是否在国家多边形内
-    private func isPointInCountryHit(_ point: CGPoint, country: CountryHitData) -> Bool {
-        for polygon in country.pathPoints {
-            if isPointInPolygon(point, polygon: polygon) {
-                return true
-            }
-        }
-        return false
-    }
-    
-    /// 射线法判断点是否在多边形内
-    private func isPointInPolygon(_ point: CGPoint, polygon: [CGPoint]) -> Bool {
-        guard polygon.count >= 3 else { return false }
-        
-        var inside = false
-        var j = polygon.count - 1
-        
-        for i in 0..<polygon.count {
-            let pi = polygon[i]
-            let pj = polygon[j]
-            
-            if ((pi.y > point.y) != (pj.y > point.y)) &&
-               (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x) {
-                inside = !inside
-            }
-            j = i
-        }
-        
-        return inside
     }
 }
 

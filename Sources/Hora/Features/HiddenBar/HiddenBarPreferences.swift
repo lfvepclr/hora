@@ -13,11 +13,23 @@ extension Notification.Name {
 enum HiddenBarPreferences {
 
     private enum DefaultsKey {
+        static let isEnabled = "hora.hiddenBar.isEnabled"
         static let isAutoHide = "hora.hiddenBar.isAutoHide"
         static let autoHideSeconds = "hora.hiddenBar.autoHideSeconds"
         static let alwaysHiddenSectionEnabled = "hora.hiddenBar.alwaysHiddenSectionEnabled"
         static let areSeparatorsHidden = "hora.hiddenBar.areSeparatorsHidden"
         static let isAutoStart = "hora.hiddenBar.isAutoStart"
+    }
+
+    // MARK: - Enabled（总开关）
+
+    /// 隐藏栏总开关（默认开启）：关闭时 chevron 与竖线分隔符从菜单栏移除
+    static var isEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: DefaultsKey.isEnabled) == nil ? true : UserDefaults.standard.bool(forKey: DefaultsKey.isEnabled) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: DefaultsKey.isEnabled)
+            NotificationCenter.default.post(name: .hiddenBarPrefsChanged, object: nil)
+        }
     }
 
     // MARK: - Auto Hide

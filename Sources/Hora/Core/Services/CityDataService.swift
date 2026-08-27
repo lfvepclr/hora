@@ -15,6 +15,9 @@ private struct CitiesData: Codable {
 class CityDataService {
     static let shared = CityDataService()
     
+    /// 共享 JSON 解码器（无状态，复用避免重复创建）
+    private static let jsonDecoder = JSONDecoder()
+    
     private(set) var cities: [WorldCity] = []
     
     /// 配置项
@@ -99,10 +102,9 @@ class CityDataService {
             return
         }
         
-        let decoder = JSONDecoder()
         let citiesData: CitiesData
         do {
-            citiesData = try decoder.decode(CitiesData.self, from: data)
+            citiesData = try Self.jsonDecoder.decode(CitiesData.self, from: data)
         } catch {
             logger.logError("Failed to decode Cities.json: \(error)")
             return

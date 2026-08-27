@@ -2,7 +2,8 @@ import Foundation
 
 /// 崩溃日志服务 - 捕获未处理异常和信号，写入本地日志文件
 /// 日志位置: ~/Library/Logs/Hora/
-final class CrashLogService {
+/// 线程安全：内部用 NSLock 保护日志缓冲区与文件写入（Swift 6 严格并发下标 @unchecked Sendable）
+final class CrashLogService: @unchecked Sendable {
     static let shared = CrashLogService()
     
     // MARK: - Properties
@@ -23,6 +24,9 @@ final class CrashLogService {
     private var pendingLogs: [String] = []
     private var isFileReady = false
     
+    /// 保护 pendingLogs / isFileReady / 文件写入的锁
+    private let lock = NSLock()
+    
     // MARK: - Init
     
     private init() {
@@ -40,8 +44,10 @@ final class CrashLogService {
         createLogDirectoryIfNeeded()
         
         // 2. 标记文件就绪，写入暂存日志
+        lock.lock()
         isFileReady = true
         flushPendingLogs()
+        lock.unlock()
         
         // 3. 检查上次崩溃日志
         checkPreviousCrashLogs()
@@ -65,6 +71,8 @@ final class CrashLogService {
         
         print("[Hora] \(entry)")
         
+        lock.lock()
+        defer { lock.unlock() }
         if isFileReady {
             appendToFile(entry)
         } else {
