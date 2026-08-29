@@ -616,7 +616,9 @@ struct AboutView: View {
     
     // MARK: - Notifications
     
-    @objc private func calendarDayDidChange() {
+    /// NSCalendarDayChanged 由系统在后台线程投递（__postAndResetMidnight → dispatch worker），
+    /// 必须用 nonisolated 打断类级 @MainActor 隔离，否则从后台线程进入即触发主 actor 断言崩溃（SIGTRAP）
+    @objc nonisolated private func calendarDayDidChange() {
         Task { @MainActor [weak self] in
             self?.updateMenuBarIcon()
         }
