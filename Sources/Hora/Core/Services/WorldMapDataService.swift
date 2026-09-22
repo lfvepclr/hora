@@ -112,8 +112,8 @@ class WorldMapDataService {
         // 从Bundle加载world.json，支持多个搜索路径
         let logger = CrashLogService.shared
         
-        // 1. 尝试 Bundle.module
-        var url = Bundle.module.url(forResource: "world", withExtension: "json")
+        // 1. 尝试 AppInfo.resourceBundle()
+        var url = AppInfo.resourceBundle().url(forResource: "world", withExtension: "json")
         
         // 2. 尝试 Bundle.main
         if url == nil {
@@ -122,7 +122,7 @@ class WorldMapDataService {
                 logger.log("WorldMapDataService: Found world.json in Bundle.main")
             }
         } else {
-            logger.log("WorldMapDataService: Found world.json in Bundle.module")
+            logger.log("WorldMapDataService: Found world.json in AppInfo.resourceBundle()")
         }
         
         // 3. 尝试 SPM 资源 bundle 子目录
@@ -167,7 +167,7 @@ class WorldMapDataService {
         let logger = CrashLogService.shared
         
         // 尝试多个路径搜索 countryTimezones.json
-        var url = Bundle.module.url(forResource: "countryTimezones", withExtension: "json")
+        var url = AppInfo.resourceBundle().url(forResource: "countryTimezones", withExtension: "json")
         if url == nil {
             url = Bundle.main.url(forResource: "countryTimezones", withExtension: "json")
         }
@@ -212,7 +212,7 @@ class WorldMapDataService {
         let logger = CrashLogService.shared
         
         // 尝试多个路径搜索 cities24tz.json
-        var url = Bundle.module.url(forResource: "cities24tz", withExtension: "json")
+        var url = AppInfo.resourceBundle().url(forResource: "cities24tz", withExtension: "json")
         if url == nil {
             url = Bundle.main.url(forResource: "cities24tz", withExtension: "json")
         }

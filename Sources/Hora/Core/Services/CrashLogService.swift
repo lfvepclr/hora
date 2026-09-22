@@ -148,7 +148,7 @@ final class CrashLogService: @unchecked Sendable {
         Version: \(AppInfo.version) (\(AppInfo.build))
         OS: \(ProcessInfo.processInfo.operatingSystemVersionString)
         Bundle: \(Bundle.main.bundlePath)
-        Module Bundle: \(Bundle.module.bundlePath)
+        Module Bundle: \(AppInfo.resourceBundle().bundlePath)
         Start Time: \(DateFormatter.iso8601Full.string(from: Date()))
         ========================================
         """
@@ -207,7 +207,7 @@ final class CrashLogService: @unchecked Sendable {
         App Version: \(AppInfo.version) (\(AppInfo.build))
         OS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
         Bundle Path: \(Bundle.main.bundlePath)
-        Module Bundle: \(Bundle.module.bundlePath)
+        Module Bundle: \(AppInfo.resourceBundle().bundlePath)
         
         Exception Name: \(exception.name.rawValue)
         Reason: \(exception.reason ?? "unknown")

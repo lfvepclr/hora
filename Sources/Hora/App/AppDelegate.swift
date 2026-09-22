@@ -12,75 +12,6 @@ extension Notification.Name {
 class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Properties
     
-    // SPM 资源 bundle 名称
-    private static let resourceBundleName = "Hora_Hora"
-    
-    /// 确保 SPM 资源 bundle 在 Bundle.module 可访问的路径上
-    /// SPM 生成的 resource_bundle_accessor 只搜索两个位置:
-    ///   1. Bundle.main.bundleURL 根目录（如 Hora.app/Hora_Hora.bundle）
-    ///   2. 构建时硬编码的路径
-    /// 但 macOS .app bundle 的资源应在 Contents/Resources/ 中，
-    /// 导致部署后 Bundle.module 首次访问时 fatalError
-    @MainActor
-    private static func ensureResourceBundleAccessible() {
-        let bundleName = resourceBundleName + ".bundle"
-        let appBundleURL = Bundle.main.bundleURL
-        let expectedPath = appBundleURL.appendingPathComponent(bundleName)
-
-        // 如果 Bundle.module 期望的位置已经存在 bundle，无需修复
-        if FileManager.default.fileExists(atPath: expectedPath.path) {
-            return
-        }
-
-        // 检查 Contents/Resources/ 中是否存在资源 bundle
-        let resourceDir = appBundleURL.appendingPathComponent("Contents/Resources")
-        let resourceBundlePath = resourceDir.appendingPathComponent(bundleName)
-
-        if FileManager.default.fileExists(atPath: resourceBundlePath.path) {
-            // 创建符号链接: Hora.app/Hora_Hora.bundle → Contents/Resources/Hora_Hora.bundle
-            do {
-                // 如果目标位置是文件而非目录，先删除
-                if FileManager.default.fileExists(atPath: expectedPath.path) {
-                    try FileManager.default.removeItem(at: expectedPath)
-                }
-                try FileManager.default.createSymbolicLink(
-                    atPath: expectedPath.path,
-                    withDestinationPath: "Contents/Resources/" + bundleName
-                )
-                // 记录到 stderr（此时 CrashLogService 尚未初始化）
-                fputs("[Hora] Created symlink for resource bundle: \(expectedPath.path) -> Contents/Resources/\(bundleName)\n", stderr)
-            } catch {
-                fputs("[Hora] Failed to create symlink for resource bundle: \(error)\n", stderr)
-                // 符号链接失败时，尝试直接复制
-                do {
-                    try FileManager.default.copyItem(atPath: resourceBundlePath.path, toPath: expectedPath.path)
-                    fputs("[Hora] Copied resource bundle to expected location\n", stderr)
-                } catch {
-                    fputs("[Hora] Failed to copy resource bundle: \(error)\n", stderr)
-                }
-            }
-        } else {
-            // Contents/Resources/ 中也不存在 bundle，无法修复
-            fputs("[Hora] WARNING: Resource bundle \(bundleName) not found in Contents/Resources/\n", stderr)
-            // 尝试在可执行文件旁边搜索
-            if let execURL = Bundle.main.executableURL {
-                let execDir = execURL.deletingLastPathComponent()
-                let execDirBundle = execDir.appendingPathComponent(bundleName)
-                if FileManager.default.fileExists(atPath: execDirBundle.path) {
-                    do {
-                        try FileManager.default.createSymbolicLink(
-                            atPath: expectedPath.path,
-                            withDestinationPath: execDir.appendingPathComponent(bundleName).path
-                        )
-                        fputs("[Hora] Created symlink from executable dir bundle\n", stderr)
-                    } catch {
-                        fputs("[Hora] Failed to create symlink: \(error)\n", stderr)
-                    }
-                }
-            }
-        }
-    }
-    
     private lazy var statusItem: NSStatusItem = {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "Hora"
@@ -112,20 +43,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // ⚠️ 第一步：修复 SPM 资源 bundle 路径（必须在访问 Bundle.module 之前！）
-        // SPM 的 resource_bundle_accessor 只搜索 Bundle.main.bundleURL 根目录和构建目录，
-        // 不会搜索 Contents/Resources/，导致部署后 Bundle.module 访问时 fatalError
-        Self.ensureResourceBundleAccessible()
-        
         let logger = CrashLogService.shared
-        
-        // 第二步：初始化崩溃日志系统
         logger.setup()
         logger.log("=== Hora starting ===")
         logger.log("Version: \(AppInfo.version) (\(AppInfo.build))")
         logger.log("OS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         logger.log("Bundle: \(Bundle.main.bundlePath)")
-        logger.log("Module Bundle: \(Bundle.module.bundlePath)")
+        logger.log("Module Bundle: \(AppInfo.resourceBundle().bundlePath)")
         
         // 设置为附件应用，不在 Dock 中显示图标
         NSApp.setActivationPolicy(.accessory)

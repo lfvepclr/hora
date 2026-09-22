@@ -84,8 +84,7 @@ struct WorldClockWebView: NSViewRepresentable {
     }
     
     private func loadHTML(in webView: WKWebView) {
-        // Swift Package中必须使用Bundle.module
-        let bundle = Bundle.module
+        let bundle = AppInfo.resourceBundle()
         
         if let htmlURL = bundle.url(forResource: "worldclock", withExtension: "html") {
             // allowingReadAccessTo 设置为 bundle 根目录，让 JS 可以 fetch 同目录下的 JSON 文件

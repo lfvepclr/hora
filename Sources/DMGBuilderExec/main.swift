@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Version Constants (keep in sync with AppInfo.swift)
 private let appName = "Hora"
-private let appVersion = "7.0.0"
+private let appVersion = "7.0.1"
 private let appBuild = "1"
 private let bundleIdentifier = "com.hora.app"
 private let minimumSystemVersion = "14.0"
@@ -23,6 +23,11 @@ struct DMGBuilder {
         }
         try process.run()
         process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw NSError(domain: "DMGBuilder.Command", code: Int(process.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: "\(executable) exited with status \(process.terminationStatus)"
+            ])
+        }
         return process.terminationStatus
     }
     
@@ -119,24 +124,9 @@ struct DMGBuilder {
         let executableDest = "\(macOSPath)/\(appName)"
         try fileManager.copyItem(atPath: executableSource, toPath: executableDest)
         
-        // 复制资源 bundle
-        // SPM 生成的 resource_bundle_accessor 只搜索 Bundle.main.bundleURL 根目录，
-        // 不搜索 Contents/Resources/，因此必须在 .app 根目录也放置 bundle（符号链接即可）
         let bundleSource = "\(buildPath)/\(appName)_Hora.bundle"
-        if fileManager.fileExists(atPath: bundleSource) {
-            // 1. 复制到 Contents/Resources/（符合 macOS 规范）
-            try fileManager.copyItem(atPath: bundleSource, toPath: "\(resourcesPath)/\(appName)_Hora.bundle")
-
-            // 2. 在 .app 根目录创建符号链接，指向 Contents/Resources/ 中的 bundle
-            //    这样 SPM 的 Bundle.module 访问器能找到资源
-            try fileManager.createSymbolicLink(
-                atPath: "\(appBundlePath)/\(appName)_Hora.bundle",
-                withDestinationPath: "Contents/Resources/\(appName)_Hora.bundle"
-            )
-            print("✅ Resource bundle placed in Contents/Resources/ with symlink at app root")
-        } else {
-            print("⚠️  Resource bundle not found at \(bundleSource)")
-        }
+        try fileManager.copyItem(atPath: bundleSource, toPath: "\(resourcesPath)/\(appName)_Hora.bundle")
+        print("Resource bundle placed in Contents/Resources/")
         
         // ============================================================
         // Step 2: Create app icon (SVG → iconset → icns)
@@ -221,6 +211,9 @@ struct DMGBuilder {
         print("🔏 Signing app bundle...")
         try shell("/usr/bin/codesign", arguments: [
             "-s", "-", "--deep", "--force", "--options", "runtime", appBundlePath
+        ])
+        try shell("/usr/bin/codesign", arguments: [
+            "--verify", "--deep", "--strict", appBundlePath
         ])
         
         // ============================================================

@@ -60,5 +60,9 @@ let package = Package(
                 .copy("world.json"),
             ]
         ),
+        .testTarget(
+            name: "DMGBuilderTests",
+            dependencies: ["DMGBuilderExec"]
+        ),
     ]
 )

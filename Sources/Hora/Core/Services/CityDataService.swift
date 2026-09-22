@@ -45,12 +45,12 @@ class CityDataService {
         }
         logger.log("\(name).\(ext) NOT found in Bundle.main (\(Bundle.main.bundlePath))")
         
-        // 2. Bundle.module（SPM 自动生成的资源 bundle）
-        if let url = Bundle.module.url(forResource: name, withExtension: ext) {
-            logger.log("Found \(name).\(ext) in Bundle.module: \(url.path)")
+        // 2. AppInfo.resourceBundle()（SPM 自动生成的资源 bundle）
+        if let url = AppInfo.resourceBundle().url(forResource: name, withExtension: ext) {
+            logger.log("Found \(name).\(ext) in AppInfo.resourceBundle(): \(url.path)")
             return url
         }
-        logger.log("\(name).\(ext) NOT found in Bundle.module (\(Bundle.module.bundlePath))")
+        logger.log("\(name).\(ext) NOT found in AppInfo.resourceBundle() (\(AppInfo.resourceBundle().bundlePath))")
         
         // 3. 在 .app 的 Resources 子目录中查找 SPM 资源 bundle
         let resourceURL = Bundle.main.resourceURL
