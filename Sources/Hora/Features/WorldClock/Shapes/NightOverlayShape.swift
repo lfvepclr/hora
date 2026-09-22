@@ -37,7 +37,11 @@ struct NightOverlayShape: Shape {
         
         // 太阳正午经度
         let solarNoonLon = -(utcHours - 12.0) * 15.0
-        
+
+        if abs(decRad) <= 0.001 {
+            return equatorialNightPath(solarNoonLon: solarNoonLon)
+        }
+
         // 判断北极是否为白天
         let northSun = declination > 0
         
@@ -62,6 +66,25 @@ struct NightOverlayShape: Shape {
         return buildNightPathSmooth(terminatorPoints: &terminatorPoints, northSun: northSun)
     }
     
+    private func equatorialNightPath(solarNoonLon: Double) -> Path {
+        var path = Path()
+        let start = normalizeLongitude(solarNoonLon + 90)
+        for shift in [-360.0, 0, 360] {
+            let west = max(-180, start + shift)
+            let east = min(180, start + 180 + shift)
+            guard west < east,
+                  let left = latLonToMapPoint(latitude: 0, longitude: west),
+                  let right = latLonToMapPoint(latitude: 0, longitude: east) else { continue }
+            let nightRect = CGRect(x: left.x, y: mapBounds.minY,
+                                   width: right.x - left.x, height: mapBounds.height)
+                .intersection(mapBounds)
+            if !nightRect.isNull && !nightRect.isEmpty {
+                path.addRect(nightRect)
+            }
+        }
+        return path
+    }
+
     // MARK: - Solar Position Calculation
     
     /// 解析计算昼夜分界线纬度（替代二分法，性能提升100倍+）
@@ -69,12 +92,7 @@ struct NightOverlayShape: Shape {
     /// => tan(lat) = -cos(ha) / tan(dec) 当 dec != 0
     private func terminatorLatitude(longitude: Double, decRad: Double, solarNoonLon: Double) -> Double {
         let hourAngle = (longitude - solarNoonLon) * Double.pi / 180.0
-        
-        // 处理赤纬接近0的情况（春秋分点附近）
-        guard abs(decRad) > 0.001 else {
-            return 0
-        }
-        
+
         let tanLat = -cos(hourAngle) / tan(decRad)
         let lat = atan(max(-100, min(100, tanLat))) * 180.0 / Double.pi
         return lat

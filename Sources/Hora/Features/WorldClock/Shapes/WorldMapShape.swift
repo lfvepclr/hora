@@ -61,8 +61,10 @@ struct WorldMapView: View {
                                                   tx: offset.width, ty: offset.height)
                 let viewPath = Path(mapPath).applying(transform)
                 context.fill(viewPath, with: .color(Color(red: 0.56, green: 0.77, blue: 0.97)))
+                // viewPath 已变换到视图坐标（pt），线宽用固定 pt 值；
+                // 对齐旧位图观感（≈0.5 逻辑像素）与 fallback 分支的 lineWidth 0.5
                 context.stroke(viewPath, with: .color(Color(red: 0.35, green: 0.55, blue: 0.78)),
-                               lineWidth: 0.5 / scale)
+                               lineWidth: 0.5)
             }
         } else if !mapService.countries.isEmpty {
             // 回退：路径还未构建时使用 Shape

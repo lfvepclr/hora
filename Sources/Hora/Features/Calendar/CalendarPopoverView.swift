@@ -90,24 +90,47 @@ struct CalendarPopoverView: View {
     // MARK: - 左侧日历区域
     private var leftCalendarView: some View {
         VStack(spacing: 0) {
-            // 星期标题
+            CalendarMonthNavigationButton(
+                symbol: "chevron.up",
+                label: monthNavigationLabel(offset: -1),
+                action: viewModel.previousMonth
+            )
+            .overlay(alignment: .leading) {
+                Text(DateFormatterCache.formatter(format: "yyyy年M月").string(from: viewModel.currentDate))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    // 标题放在按钮右侧，不影响箭头在日历区域的居中位置。
+                    .offset(x: 72)
+                    .allowsHitTesting(false)
+            }
+            .frame(maxWidth: .infinity)
+
+            // 星期标题（14pt + 顶部8pt）
             weekdayHeaderView
+                .frame(height: 14)
                 .padding(.horizontal, 8)
                 .padding(.top, 8)
-            
-            // 日历网格
+
+            // 日历网格与导航按钮各自占用固定空间，避免六行月份重叠。
             CalendarGridView(viewModel: viewModel)
-                .padding(.horizontal, 8)
+                .frame(width: 324, height: 302)
                 .padding(.bottom, 8)
-            
-            // Divider()
-            //     .padding(.horizontal, 8)
-            
-            // // 底部：今日按钮
-            // footerView
-            //     .padding(.horizontal, 12)
-            //     .padding(.vertical, 8)
+
+            CalendarMonthNavigationButton(
+                symbol: "chevron.down",
+                label: monthNavigationLabel(offset: 1),
+                action: viewModel.nextMonth
+            )
+            .frame(maxWidth: .infinity)
         }
+        .frame(height: 380)
+    }
+
+    private func monthNavigationLabel(offset: Int) -> String {
+        let targetDate = Calendar.current.date(byAdding: .month, value: offset, to: viewModel.currentDate) ?? viewModel.currentDate
+        let targetMonth = DateFormatterCache.formatter(format: "yyyy年M月").string(from: targetDate)
+        return "\(offset < 0 ? "上个月" : "下个月")：\(targetMonth)"
     }
     
     // MARK: - Weekday Header
@@ -166,6 +189,36 @@ struct CalendarPopoverView: View {
             object: nil,
             userInfo: ["width": width]
         )
+    }
+}
+
+private struct CalendarMonthNavigationButton: View {
+    let symbol: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(isHovering || isFocused ? Color(white: 0.25) : .gray)
+                .frame(width: 64, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .overlay {
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(isFocused ? Color.accentColor : .clear, lineWidth: 1)
+                .padding(2)
+                .allowsHitTesting(false)
+        }
+        .onHover { isHovering = $0 }
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 

@@ -122,7 +122,171 @@ final class SolarPositionCalculator {
 // MARK: - Night Overlay Shape Tests
 
 final class NightOverlayShapeTests: XCTestCase {
-    
+    func testProductionEquinoxPathCoversNightLongitudesInBothHemispheres() {
+        for hour in [0, 6, 12, 18] {
+            let date = makeDate(year: 2026, month: 3, day: 23, hour: hour)
+            let path = productionShape(date: date).path(in: worldBounds)
+            let sun = SolarPositionCalculator(date: date)
+            for latitude in [-60.0, -30.0, 30.0, 60.0] {
+                for longitude in stride(from: -165.0, through: 165.0, by: 30.0) {
+                    let expectedNight = sun.getSunAltitude(latitude: latitude, longitude: longitude) < 0
+                    XCTAssertEqual(path.contains(project(latitude, longitude)), expectedNight,
+                                   "UTC\(hour), lat=\(latitude), lon=\(longitude)")
+                }
+            }
+        }
+    }
+
+    func testProductionPathsEveryDayAndHourOfCommonAndLeapYears() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let latitudes = stride(from: -80.0, through: 80.0, by: 20.0)
+        let longitudes = [-179.0] + Array(stride(from: -172.0, through: 173.0, by: 15.0)) + [179.0]
+        let samples = latitudes.flatMap { latitude in
+            longitudes.map { longitude in
+                (latitude, longitude, project(latitude, longitude))
+            }
+        }
+        var checkedDays = 0
+        var checkedPaths = 0
+        var checkedPoints = 0
+        var mismatches = 0
+        var examples: [String] = []
+        for year in [2026, 2028] {
+            let start = makeDate(year: year, month: 1, day: 1, hour: 0)
+            let end = makeDate(year: year + 1, month: 1, day: 1, hour: 0)
+            var day = start
+            while day < end {
+                for hour in 0..<24 {
+                    let date = day.addingTimeInterval(Double(hour * 3600 + 13 * 60))
+                    let path = productionShape(date: date).path(in: worldBounds).cgPath
+                    let sun = SolarPositionCalculator(date: date)
+                    let dec = sun.getSolarDeclination() * .pi / 180
+                    let noon = sun.getSolarNoonLongitude()
+                    for (latitude, longitude, point) in samples {
+                        let lat = latitude * .pi / 180
+                        let ha = (longitude - noon) * .pi / 180
+                        let altitude = asin(sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha)) * 180 / .pi
+                        // Avoid numerical ambiguity within half a degree of the geometric horizon.
+                        guard abs(altitude) > 0.5 else { continue }
+                        checkedPoints += 1
+                        if path.contains(point) != (altitude < 0) {
+                            mismatches += 1
+                            if examples.count < 8 {
+                                examples.append("\(date): lat=\(latitude), lon=\(longitude), altitude=\(altitude)")
+                            }
+                        }
+                    }
+                    checkedPaths += 1
+                }
+                checkedDays += 1
+                day = calendar.date(byAdding: .day, value: 1, to: day)!
+            }
+        }
+        XCTAssertEqual(checkedDays, 731)
+        XCTAssertEqual(checkedPaths, 17_544)
+        XCTAssertGreaterThan(checkedPoints, 4_000_000)
+        XCTAssertEqual(mismatches, 0, examples.joined(separator: "\n"))
+        print("Production night-mask regression: \(checkedDays) days, \(checkedPaths) hourly paths, \(checkedPoints) classified points, \(mismatches) mismatches")
+    }
+
+    func testProductionPathAtScreenshotTime() {
+        let date = makeDate(year: 2026, month: 9, day: 21, hour: 7, minute: 53)
+        let path = productionShape(date: date).path(in: worldBounds)
+        for (lat, lon, night) in [(39.9, 116.4, false), (51.5, -0.1, false),
+                                   (40.7, -74.0, true), (34.1, -118.2, true)] {
+            XCTAssertEqual(path.contains(project(lat, lon)), night)
+        }
+    }
+
+    func testProductionPathRespectsProjectionAndViewport() {
+        let bounds = CGRect(x: -150, y: -110, width: 310, height: 200)
+        for month in [3, 6, 12] {
+            let date = makeDate(year: 2026, month: month, day: 23, hour: 12)
+            let shape = NightOverlayShape(
+                date: date, mapBounds: bounds,
+                transform: HCTransform(crs: "mill", scale: 180 / (.pi * 6371007.2), jsonres: 1,
+                                       jsonmarginX: 17, jsonmarginY: 11, xoffset: 0, yoffset: 0),
+                yMid: 19, viewHeight: bounds.height
+            )
+            let path = shape.path(in: bounds)
+            let sun = SolarPositionCalculator(date: date)
+            for lat in [-40.0, 40.0] {
+                for lon in [-120.0, 0, 120] {
+                    let point = project(lat, lon)
+                    let shifted = CGPoint(x: point.x + 17, y: point.y + 27)
+                    XCTAssertEqual(path.contains(shifted), sun.getSunAltitude(latitude: lat, longitude: lon) < 0)
+                }
+            }
+            let viewTransform = CGAffineTransform(a: 2, b: 0, c: 0, d: 2, tx: 37, ty: 23)
+            let transformed = path.applying(viewTransform)
+            let point = CGPoint(x: 17, y: 27)
+            XCTAssertEqual(path.contains(point), transformed.contains(point.applying(viewTransform)))
+        }
+    }
+
+    func testProductionEquinoxBoundariesAndAntimeridian() {
+        for hour in [0, 6, 12, 18] {
+            let date = makeDate(year: 2026, month: 3, day: 23, hour: hour)
+            let path = productionShape(date: date).path(in: worldBounds)
+            let sun = SolarPositionCalculator(date: date)
+            let noon = sun.getSolarNoonLongitude()
+            var longitudes = [-179.999, 179.999]
+            for boundary in [noon - 90, noon + 90] {
+                for side in [-0.01, 0.01] {
+                    let longitude = boundary + side
+                    longitudes.append((longitude + 540).truncatingRemainder(dividingBy: 360) - 180)
+                }
+            }
+            for latitude in [-60.0, 0, 60] {
+                for longitude in longitudes {
+                    XCTAssertEqual(path.contains(project(latitude, longitude)),
+                                   sun.getSunAltitude(latitude: latitude, longitude: longitude) < 0,
+                                   "UTC\(hour) lat=\(latitude), lon=\(longitude)")
+                }
+            }
+        }
+    }
+
+    func testProductionEquinoxPathClipsToViewport() {
+        let date = makeDate(year: 2026, month: 3, day: 23, hour: 12)
+        let viewport = CGRect(x: -130, y: -70, width: 260, height: 140)
+        let path = productionShape(date: date, bounds: viewport).path(in: viewport)
+        XCTAssertEqual(path.boundingRect, viewport)
+        XCTAssertTrue(path.contains(CGPoint(x: 120, y: 60)))
+        XCTAssertTrue(path.contains(CGPoint(x: -120, y: -60)))
+        XCTAssertFalse(path.contains(CGPoint(x: 140, y: 0)))
+        XCTAssertFalse(path.contains(CGPoint(x: -140, y: 0)))
+        XCTAssertFalse(path.contains(CGPoint(x: 120, y: 80)))
+        XCTAssertFalse(path.contains(CGPoint(x: -120, y: -80)))
+        XCTAssertFalse(path.contains(.zero))
+    }
+
+    func testProductionPathIsEmptyWithoutProjection() {
+        let shape = NightOverlayShape(date: Date(), mapBounds: worldBounds,
+                                      transform: nil, yMid: 0, viewHeight: 264)
+        XCTAssertTrue(shape.path(in: worldBounds).isEmpty)
+    }
+
+    private var worldBounds: CGRect {
+        CGRect(x: -180, y: -132, width: 360, height: 264)
+    }
+
+    private func productionShape(date: Date, bounds: CGRect? = nil) -> NightOverlayShape {
+        NightOverlayShape(
+            date: date,
+            mapBounds: bounds ?? worldBounds,
+            transform: HCTransform(crs: "mill", scale: 180 / (.pi * 6371007.2), jsonres: 1,
+                                   jsonmarginX: 0, jsonmarginY: 0, xoffset: 0, yoffset: 0),
+            yMid: 0,
+            viewHeight: 264
+        )
+    }
+
+    private func project(_ latitude: Double, _ longitude: Double) -> CGPoint {
+        CGPoint(x: longitude, y: -180 / .pi * 1.25 * log(tan(.pi / 4 + 0.4 * latitude * .pi / 180)))
+    }
+
     // MARK: - Helper Methods
     
     /// 创建指定日期时间的 Date

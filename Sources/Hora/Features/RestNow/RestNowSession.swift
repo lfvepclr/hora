@@ -20,6 +20,8 @@ final class RestNowSession: NSObject {
         static let restDuration = "hora.restNow.restDuration"
         static let isEnabled = "hora.restNow.isEnabled"
         static let forcedRestSeconds = "hora.restNow.forcedRestSeconds"
+        static let idleDetectionEnabled = "hora.restNow.idleDetectionEnabled"
+        static let idleThresholdSeconds = "hora.restNow.idleThresholdSeconds"
     }
 
     // MARK: - Observable Properties
@@ -38,6 +40,9 @@ final class RestNowSession: NSObject {
                 timer = nil
                 lockPollTimer?.invalidate()
                 lockPollTimer = nil
+                idlePollTimer?.invalidate()
+                idlePollTimer = nil
+                wasIdle = false
                 BreakOverlayWindowManager.shared.hide()
             }
         }
@@ -59,6 +64,17 @@ final class RestNowSession: NSObject {
     var forcedRestSeconds: Int {
         let stored = UserDefaults.standard.integer(forKey: DefaultsKey.forcedRestSeconds)
         return stored > 0 ? stored : 10
+    }
+
+    /// 离开检测开关，默认开启。每轮空闲轮询现读 UserDefaults，切换即时生效
+    var idleDetectionEnabled: Bool {
+        (UserDefaults.standard.object(forKey: DefaultsKey.idleDetectionEnabled) as? Bool) ?? true
+    }
+
+    /// 键鼠空闲阈值（秒），低于 1 分钟视为未设置，回退默认 300
+    var idleThresholdSeconds: Int {
+        let stored = UserDefaults.standard.integer(forKey: DefaultsKey.idleThresholdSeconds)
+        return stored > 0 ? stored : 300
     }
 
     var totalDuration: Int {
@@ -97,6 +113,10 @@ final class RestNowSession: NSObject {
     private var lastWakeHandled: Date?
     private var lockedAt: Date?
     private var hasRegisteredWakeObservers = false
+    /// 空闲轮询定时器（独立于主计时器：主计时器暂停后仍需检测活动恢复）
+    private var idlePollTimer: Timer?
+    /// 当前是否处于「键鼠空闲 → 计时暂停」状态
+    private var wasIdle = false
 
     // MARK: - Init
 
@@ -166,11 +186,14 @@ final class RestNowSession: NSObject {
 
     // MARK: - Session
 
-    /// 统一启动会话：计时器 + 锁屏轮询 + 唤醒监听
+    /// 统一启动会话：计时器 + 锁屏轮询 + 空闲轮询 + 唤醒监听
     private func startSession() {
         startTimer()
         if lockPollTimer == nil {
             startLockPoll()
+        }
+        if idlePollTimer == nil {
+            startIdlePoll()
         }
         if !hasRegisteredWakeObservers {
             registerWakeObservers()
@@ -240,6 +263,66 @@ final class RestNowSession: NSObject {
         }
         return (dict["CGSSessionScreenIsLocked"] as? Bool) ?? false
     }
+
+    // MARK: - Idle Detection
+
+    private func startIdlePoll() {
+        wasIdle = false
+        let poll = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkIdleState()
+            }
+        }
+        poll.tolerance = 1
+        RunLoop.main.add(poll, forMode: .common)
+        idlePollTimer = poll
+    }
+
+    /// 空闲状态机（仅工作阶段生效）：
+    /// 键鼠空闲超过阈值 → 暂停倒计时（保留剩余时间，不重置）；
+    /// 检测到活动 → 继续剩余倒计时。
+    private func checkIdleState() {
+        guard isEnabled, idleDetectionEnabled, phase == .work else {
+            if wasIdle {
+                wasIdle = false
+                resumeCycle()
+            }
+            return
+        }
+        // 锁屏期间归锁屏轮询管（checkLockState/handleWakeEvent），避免双重状态迁移
+        guard !isScreenLocked() else { return }
+
+        let idle = secondsSinceUserActivity()
+        let threshold = TimeInterval(idleThresholdSeconds)
+        if idle >= threshold {
+            if !wasIdle || !isPaused {
+                // 新进入空闲；或被唤醒处理器恢复但人仍未归（Watch/Touch ID 解锁无键鼠输入）
+                wasIdle = true
+                pauseCycle()
+                CrashLogService.shared.log("Idle detection: 空闲 \(Int(idle))s ≥ 阈值 \(Int(threshold))s，工作倒计时已暂停")
+            }
+        } else if wasIdle {
+            wasIdle = false
+            resumeCycle()
+            CrashLogService.shared.log("Idle detection: 检测到键鼠活动（空闲 \(Int(idle))s），工作倒计时继续")
+        }
+    }
+
+    /// 距最近一次用户输入事件的秒数。
+    /// 用白名单事件类型取最小值——`~0`（任意类型）在部分 macOS 版本会被系统/第三方
+    /// 合成的 `.null` 事件持续重置，导致空闲秒数恒为 0。
+    private func secondsSinceUserActivity() -> CFTimeInterval {
+        Self.activityEventTypes
+            .map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
+            .min() ?? 0
+    }
+
+    private static let activityEventTypes: [CGEventType] = [
+        .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+        .leftMouseDown, .rightMouseDown, .otherMouseDown,
+        .leftMouseUp, .rightMouseUp, .otherMouseUp,
+        .keyDown, .keyUp, .flagsChanged, .scrollWheel
+    ]
 
     // MARK: - Wake Handling
 

@@ -70,6 +70,8 @@ struct RestNowSettingsView: View {
     @AppStorage("hora.restNow.workDuration") private var workDurationSeconds = 1200
     @AppStorage("hora.restNow.restDuration") private var restDurationSeconds = 300
     @AppStorage("hora.restNow.forcedRestSeconds") private var forcedRestSeconds = 60
+    @AppStorage("hora.restNow.idleDetectionEnabled") private var idleDetectionEnabled = true
+    @AppStorage("hora.restNow.idleThresholdSeconds") private var idleThresholdSeconds = 300
 
     let onDismiss: (() -> Void)?
 
@@ -91,6 +93,8 @@ struct RestNowSettingsView: View {
                 restOptions: [1, 3, 5, 10]
             )
 
+            idleDetectionSection
+
             RestNowColorSettingsView()
 
             Spacer()
@@ -103,7 +107,7 @@ struct RestNowSettingsView: View {
             .padding(.bottom, 24)
         }
         .padding(.horizontal, 40)
-        .frame(width: 460, height: 520)
+        .frame(width: 460, height: 640)
         .onChange(of: workDurationSeconds) {
             if session.isEnabled { session.resetCycle() }
         }
@@ -126,5 +130,42 @@ struct RestNowSettingsView: View {
             get: { max(restDurationSeconds / 60, 1) },
             set: { restDurationSeconds = $0 * 60 }
         )
+    }
+
+    private var idleMinutesBinding: Binding<Int> {
+        Binding(
+            get: { max(idleThresholdSeconds / 60, 1) },
+            set: { idleThresholdSeconds = min(max($0, 1), 30) * 60 }
+        )
+    }
+
+    // MARK: - Idle Detection Section
+
+    private var idleDetectionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("离开时暂停计时", isOn: $idleDetectionEnabled)
+                .font(.headline)
+
+            if idleDetectionEnabled {
+                HStack(spacing: 8) {
+                    Text("键鼠空闲超过")
+                        .font(.subheadline)
+                    TextField("", value: idleMinutesBinding, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                        .multilineTextAlignment(.trailing)
+                    Text("分钟")
+                        .font(.subheadline)
+                    Stepper("", value: idleMinutesBinding, in: 1...30)
+                        .labelsHidden()
+                    Spacer()
+                }
+
+                Text("键鼠空闲达到该时长后，工作倒计时暂停；检测到键鼠操作后继续剩余时间")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 8)
     }
 }

@@ -359,17 +359,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if session.isEnabled {
             let progress = session.progress
             let phase = session.phase
-            statusItem.button?.image = createProgressRingImage(progress: progress, phase: phase)
+            statusItem.button?.image = createProgressRingImage(progress: progress, phase: phase, isPaused: session.isPaused)
             statusItem.button?.imagePosition = .imageLeading
         } else {
             statusItem.button?.image = nil
         }
     }
-    
+
     // MARK: - Progress Ring Image
-    
+
     @MainActor
-    private func createProgressRingImage(progress: Double, phase: RestNowSession.Phase) -> NSImage {
+    private func createProgressRingImage(progress: Double, phase: RestNowSession.Phase, isPaused: Bool = false) -> NSImage {
         let size = NSSize(width: 16, height: 16)
         let colorSettings = RestNowColorSettings.shared
         let image = NSImage(size: size, flipped: false) { rect in
@@ -387,37 +387,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             progressColor.withAlphaComponent(0.3).setStroke()
             bgPath.stroke()
             
-            // 彩色进度弧线（从12点钟方向顺时针）
+            // 彩色进度弧线（从12点钟方向顺时针）；暂停态整体降透明度以示区分
             let startAngle: CGFloat = 90 // 12点钟方向
             let endAngle: CGFloat = 90 - CGFloat(progress) * 360
             let progressPath = NSBezierPath()
             progressPath.appendArc(withCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: true)
             progressPath.lineWidth = lineWidth
             progressPath.lineCapStyle = .round
-            progressColor.setStroke()
+            progressColor.withAlphaComponent(isPaused ? 0.35 : 1.0).setStroke()
             progressPath.stroke()
-            
-            // 休息阶段：中心绘制咖啡图标
-            if phase == .rest {
-                if let symbolImage = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: nil) {
-                    let iconSize: CGFloat = 7.0
-                    let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
-                    let configured = symbolImage.withSymbolConfiguration(config) ?? symbolImage
-                    let iconRect = NSRect(
-                        x: center.x - iconSize / 2,
-                        y: center.y - iconSize / 2,
-                        width: iconSize,
-                        height: iconSize
-                    )
-                    progressColor.set()
-                    configured.draw(in: iconRect)
-                }
+
+            // 暂停状态：中心绘制暂停符号（优先于休息咖啡图标）
+            if isPaused {
+                self.drawCenteredSymbol("pause.fill", at: center, size: 6.0, color: progressColor)
+            } else if phase == .rest {
+                self.drawCenteredSymbol("cup.and.saucer.fill", at: center, size: 7.0, color: progressColor)
             }
-            
+
             return true
         }
         image.isTemplate = false
         return image
+    }
+
+    /// 在进度环中心绘制 SF Symbol 图标
+    @MainActor
+    private func drawCenteredSymbol(_ name: String, at center: NSPoint, size iconSize: CGFloat, color: NSColor) {
+        guard let symbolImage = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return }
+        let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
+        let configured = symbolImage.withSymbolConfiguration(config) ?? symbolImage
+        let iconRect = NSRect(
+            x: center.x - iconSize / 2,
+            y: center.y - iconSize / 2,
+            width: iconSize,
+            height: iconSize
+        )
+        color.set()
+        configured.draw(in: iconRect)
     }
     
     // MARK: - Context Menu

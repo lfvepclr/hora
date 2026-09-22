@@ -7,18 +7,27 @@ struct CalendarGridView: View {
     let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(daysInMonth(), id: \.self) { date in
-                CompactDayCell(
-                    date: date,
-                    isSelected: isSameDay(date, viewModel.selectedDate),
-                    isToday: Calendar.current.isDateInToday(date),
-                    currentMonth: viewModel.currentDate,
-                    onTap: {
-                        viewModel.selectedDate = date
-                    }
-                )
+        let days = daysInMonth()
+        let rows = max(1, days.count / 7)
+
+        GeometryReader { geometry in
+            let cellHeight = min(54, (geometry.size.height - 4 * CGFloat(rows - 1)) / CGFloat(rows))
+
+            LazyVGrid(columns: columns, spacing: 4) {
+                ForEach(days, id: \.self) { date in
+                    CompactDayCell(
+                        date: date,
+                        isSelected: isSameDay(date, viewModel.selectedDate),
+                        isToday: Calendar.current.isDateInToday(date),
+                        currentMonth: viewModel.currentDate,
+                        cellHeight: cellHeight,
+                        onTap: {
+                            viewModel.selectedDate = date
+                        }
+                    )
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
         }
     }
     
@@ -70,14 +79,16 @@ struct CompactDayCell: View {
     let isSelected: Bool
     let isToday: Bool
     let currentMonth: Date
+    let cellHeight: CGFloat
     let onTap: () -> Void
     private let cellData: CellData
     
-    init(date: Date, isSelected: Bool, isToday: Bool, currentMonth: Date, onTap: @escaping () -> Void) {
+    init(date: Date, isSelected: Bool, isToday: Bool, currentMonth: Date, cellHeight: CGFloat = 54, onTap: @escaping () -> Void) {
         self.date = date
         self.isSelected = isSelected
         self.isToday = isToday
         self.currentMonth = currentMonth
+        self.cellHeight = cellHeight
         self.onTap = onTap
         self.cellData = CellData(date: date)
     }
@@ -118,10 +129,10 @@ struct CompactDayCell: View {
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // 背景层 - 圆角8px，高度54px
+            // 背景层 - 圆角8px，高度随网格行数调整
             RoundedRectangle(cornerRadius: 8)
                 .fill(backgroundColor)
-                .frame(height: 54)
+                .frame(height: cellHeight)
 
             // 内容层 - 使用frame(maxWidth:)确保居中
             VStack(spacing: 2) {
@@ -149,6 +160,7 @@ struct CompactDayCell: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .frame(height: cellHeight)
         .help(cellData.holidayName != nil ? cellData.holidayName! : "") // hover显示完整节假日名称
         .onTapGesture {
             onTap()
