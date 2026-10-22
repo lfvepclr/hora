@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Version Constants (keep in sync with AppInfo.swift)
 private let appName = "Hora"
-private let appVersion = "7.0.1"
-private let appBuild = "1"
+private let appVersion = "7.0.2"
+private let appBuild = "2"
 private let bundleIdentifier = "com.hora.app"
 private let minimumSystemVersion = "14.0"
 
@@ -12,6 +12,24 @@ struct DMGBuilder {
     
     // MARK: - Helper: Run shell process
     
+    static func detachVolume(_ mountPoint: String, force: Bool = false) -> Bool {
+        var arguments = ["detach", mountPoint, "-quiet"]
+        if force { arguments.append("-force") }
+        do {
+            return try shell("/usr/bin/hdiutil", arguments: arguments, silent: true) == 0
+        } catch {
+            return false
+        }
+    }
+
+    static func detachVolumeWithRetries(_ mountPoint: String) -> Bool {
+        for attempt in 0..<3 {
+            if detachVolume(mountPoint, force: attempt > 0) { return true }
+            Thread.sleep(forTimeInterval: 1)
+        }
+        return false
+    }
+
     @discardableResult
     static func shell(_ executable: String, arguments: [String], silent: Bool = false) throws -> Int32 {
         let process = Process()
@@ -274,7 +292,9 @@ struct DMGBuilder {
         let mountPoint = "/Volumes/\(appName)"
         
         // Detach if already mounted
-        try? shell("/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"], silent: true)
+        if fileManager.fileExists(atPath: mountPoint) {
+            _ = detachVolumeWithRetries(mountPoint)
+        }
         
         let attachStatus = try shell("/usr/bin/hdiutil", arguments: [
             "attach", rwDmgPath,
@@ -343,7 +363,10 @@ struct DMGBuilder {
         // Step 8: Detach DMG
         // ============================================================
         print("📤 Detaching DMG...")
-        try shell("/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"], silent: true)
+        guard detachVolumeWithRetries(mountPoint) else {
+            print("❌ Failed to detach DMG volume at \(mountPoint)!")
+            Foundation.exit(1)
+        }
         
         // ============================================================
         // Step 9: Convert to compressed UDZO format (zlib-level=9)

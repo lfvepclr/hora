@@ -53,6 +53,7 @@ final class HiddenBarController {
         if HiddenBarPreferences.isEnabled {
             setupUI()
             restoreRemovedStatusItems()
+            MenuBarPositionMemory.shared.start()
         }
         setupAlwaysHiddenIfNeeded()
         NotificationCenter.default.addObserver(
@@ -159,12 +160,14 @@ final class HiddenBarController {
         }
         btnSeparate?.length = btnHiddenCollapseLength
         btnExpandCollapse?.button?.image = Self.expandImage
+        MenuBarPositionMemory.shared.captureAll()
     }
 
     private func expandMenubar() {
         guard isCollapsed else { return }
         btnSeparate?.length = btnHiddenLength
         btnExpandCollapse?.button?.image = Self.collapseImage
+        MenuBarPositionMemory.shared.captureAll()
         autoCollapseIfNeeded()
     }
 
@@ -251,6 +254,7 @@ final class HiddenBarController {
                 btnExpandCollapse?.isVisible = true
                 btnSeparate?.isVisible = true
             }
+            MenuBarPositionMemory.shared.start()
             autoCollapseIfNeeded()
         } else {
             // 关闭前记录当前宽度，供重开时恢复
@@ -261,6 +265,7 @@ final class HiddenBarController {
             // 用 0 宽隐藏而非 isVisible/removeStatusItem：项保持注册，系统保留位置记忆
             btnExpandCollapse?.length = 0
             btnSeparate?.length = 0
+            MenuBarPositionMemory.shared.stop()
         }
     }
 
@@ -415,6 +420,7 @@ final class HiddenBarController {
     func buildSubmenu() -> NSMenu {
         // 打开设置菜单时自动展开，让分隔线立即可见、可 Cmd+拖拽
         if isCollapsed { expandMenubar() }
+        MenuBarPositionMemory.shared.captureAll()
 
         let menu = NSMenu()
         menu.autoenablesItems = false
